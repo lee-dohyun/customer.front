@@ -15,7 +15,7 @@ export default function LoginPage() {
       return;
     }
     try {
-      const res = await fetch("http://auth.api:8080/api/jwt/login", {
+      const res = await fetch("https://auth.leedohyun.com/api/jwt/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
