@@ -15,20 +15,14 @@ export default function LoginPage() {
       return;
     }
     try {
-      const params = new URLSearchParams({ email, password });
-      const res = await fetch(
-        `https://auth.leedohyun.com/api/jwt/login?${params.toString()}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-        }
-      );
-      const data = await res.text();
-      if (res.ok && data && data !== "Invalid email or password") {
-        // JWT 토큰을 localStorage에 저장
-        localStorage.setItem("jwt", data);
-        // 메인 페이지로 이동
-        window.location.href = "/";
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ email, password }),
+      });
+      if (res.ok) {
+        window.location.href = "/mypage";
       } else {
         setError("이메일 또는 비밀번호가 올바르지 않습니다.");
       }
