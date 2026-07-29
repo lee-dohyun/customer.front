@@ -4,9 +4,23 @@ import { useEffect, useState } from "react";
 
 type Me = { email: string; role: string };
 
+type OrderSummary = {
+  id: number;
+  status: string;
+  totalPrice: number;
+  itemCount: number;
+  createdAt: string;
+};
+
+const orderStatusLabel: Record<string, string> = {
+  CREATED: "결제 대기",
+  PAID: "결제 완료",
+};
+
 export default function MyPage() {
   const [me, setMe] = useState<Me | null>(null);
   const [error, setError] = useState("");
+  const [orders, setOrders] = useState<OrderSummary[]>([]);
 
   useEffect(() => {
     fetch("/api/auth/me", { credentials: "include" })
@@ -18,6 +32,11 @@ export default function MyPage() {
       })
       .then((data: Me) => setMe(data))
       .catch(() => setError("사용자 정보를 불러오지 못했습니다."));
+
+    fetch("/api/orders/mine", { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : []))
+      .then(setOrders)
+      .catch(() => setOrders([]));
   }, []);
 
   const handleLogout = async () => {
@@ -52,6 +71,34 @@ export default function MyPage() {
           >
             회원 탈퇴
           </button>
+
+          <h3 style={{ marginTop: 32 }}>주문내역</h3>
+          {orders.length === 0 ? (
+            <p style={{ color: "#888" }}>주문 내역이 없습니다.</p>
+          ) : (
+            <ul style={{ listStyle: "none", padding: 0 }}>
+              {orders.map((order) => (
+                <li
+                  key={order.id}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    padding: "10px 0",
+                    borderBottom: "1px solid #eee",
+                  }}
+                >
+                  <span>
+                    주문 #{order.id} · {new Date(order.createdAt).toLocaleDateString()} · 상품{" "}
+                    {order.itemCount}종
+                  </span>
+                  <span>
+                    {order.totalPrice.toLocaleString()}원 (
+                    {orderStatusLabel[order.status] ?? order.status})
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
         </>
       )}
     </div>
