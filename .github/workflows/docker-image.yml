@@ -35,4 +35,22 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.PROJECT_NAME }}:latest
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.PROJECT_NAME }}:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.PROJECT_NAME }}:${{ github.sha }}
+
+  deploy:
+    needs: build-and-push
+    if: github.event_name == 'push'
+    runs-on: [self-hosted, k3s-home]
+
+    steps:
+      - name: Deploy new image to K3s
+        run: |
+          /usr/local/bin/kubectl --kubeconfig=/home/leedohyun/.kube-ci/customer-front-deployer.kubeconfig \
+            set image deployment/customer-front customer-front=leedohyun1985/customer.front:${{ github.sha }} -n customer
+
+      - name: Wait for rollout
+        run: |
+          /usr/local/bin/kubectl --kubeconfig=/home/leedohyun/.kube-ci/customer-front-deployer.kubeconfig \
+            rollout status deployment/customer-front -n customer --timeout=120s
