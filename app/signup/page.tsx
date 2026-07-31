@@ -32,7 +32,7 @@ function SignupForm() {
       } else {
         setError("회원가입 중 오류가 발생했습니다.");
       }
-    } catch (err) {
+    } catch {
       setError("회원가입 중 오류가 발생했습니다.");
     }
   };

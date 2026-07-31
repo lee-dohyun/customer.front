@@ -76,7 +76,7 @@ export default function ProfilePage() {
       } else {
         setError("정보 수정에 실패했습니다.");
       }
-    } catch (err) {
+    } catch {
       setError("정보 수정 중 오류가 발생했습니다.");
     }
   };
