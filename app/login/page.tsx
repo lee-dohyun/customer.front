@@ -7,11 +7,16 @@ function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [needsVerification, setNeedsVerification] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resent, setResent] = useState(false);
   const searchParams = useSearchParams();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setNeedsVerification(false);
+    setResent(false);
     if (!email || !password) {
       setError("이메일과 비밀번호를 입력하세요.");
       return;
@@ -26,11 +31,33 @@ function LoginForm() {
       if (res.ok) {
         const redirectUri = searchParams.get("redirect_uri") || "/mypage";
         window.location.href = redirectUri;
+      } else if (res.status === 403) {
+        const body = await res.json().catch(() => null);
+        if (body?.error === "EMAIL_NOT_VERIFIED") {
+          setNeedsVerification(true);
+          setError("이메일 인증이 완료되지 않았습니다. 가입 시 받은 메일을 확인해주세요.");
+        } else {
+          setError("로그인할 수 없습니다.");
+        }
       } else {
         setError("이메일 또는 비밀번호가 올바르지 않습니다.");
       }
     } catch {
       setError("로그인 중 오류가 발생했습니다.");
+    }
+  };
+
+  const handleResend = async () => {
+    setResending(true);
+    try {
+      await fetch("/api/auth/resend-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      setResent(true);
+    } finally {
+      setResending(false);
     }
   };
 
@@ -100,6 +127,31 @@ function LoginForm() {
         </div>
         {error && (
           <div style={{ color: "red", marginBottom: 16 }}>{error}</div>
+        )}
+        {needsVerification && (
+          resent ? (
+            <div style={{ color: "#0070f3", marginBottom: 16 }}>
+              인증 메일을 다시 보냈습니다. 메일함을 확인해주세요.
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={handleResend}
+              disabled={resending}
+              style={{
+                width: "100%",
+                padding: 10,
+                marginBottom: 16,
+                background: "#fff",
+                color: "#0070f3",
+                border: "1.5px solid #0070f3",
+                borderRadius: 4,
+                cursor: "pointer",
+              }}
+            >
+              {resending ? "발송 중..." : "인증 메일 다시 받기"}
+            </button>
+          )
         )}
         <button
           type="submit"

@@ -52,7 +52,10 @@ function SignupForm() {
           textAlign: "center",
         }}
       >
-        <h2 style={{ marginBottom: 16 }}>가입이 완료되었습니다</h2>
+        <h2 style={{ marginBottom: 16 }}>이메일을 확인해주세요</h2>
+        <p style={{ color: "#555", marginBottom: 16 }}>
+          {email}로 인증 메일을 보냈습니다. 메일의 링크를 클릭하면 가입이 완료됩니다.
+        </p>
         <a href={loginUrl} style={{ color: "#0070f3" }}>
           로그인하러 가기
         </a>
