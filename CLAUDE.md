@@ -43,3 +43,21 @@ The `Dockerfile` has four stages: `base` (installs native build deps, copies `pa
 - `app/` — App Router pages only, no route groups or nested layouts beyond the root: `app/layout.tsx` (root layout, Geist fonts), `app/page.tsx` (default create-next-app landing page, effectively unbuilt/placeholder), `app/login/page.tsx`, `app/mypage/page.tsx`. All pages so far are client components (`"use client"`) with inline styles or Tailwind utility classes mixed together (login page uses inline `style={}` objects, not Tailwind) — no shared UI component library or `components/` directory exists yet.
 - `public/` — static assets (default Next.js svgs, favicon).
 - No `env` files, no `middleware.ts`, no `app/api/` route handlers, no path aliases in use beyond the default `@/*` in `tsconfig.json`.
+
+## Important: new pages here need a gateway whitelist edit too, not just a route in this repo
+
+In production, `customer.leedohyun.com` is a `PROTECTED_HOSTS` entry in the `gateway` repo's
+`JwtAuthenticationFilter` (separate repo, not this one). Any request to that host without a valid
+`ACCESS_TOKEN` cookie gets silently 302-redirected to `home.leedohyun.com` — no error, no 401, just a
+redirect that looks like "the page doesn't exist" from the browser. Adding a page in `app/` here is not
+enough by itself if that page must be reachable **before login** (e.g. a signup page, an email
+verification landing page, a password-reset page). It also needs an entry in `gateway`'s
+`PUBLIC_EXACT_PATHS`/`PUBLIC_PATH_PREFIXES` — and if the page calls a same-origin `/api/auth/**` route,
+that API path needs its own separate entry too (they are two different whitelist entries, not one).
+
+**Incident (2026-08-02)**: `app/verify/page.tsx` (email verification landing page) was added and worked
+in every way except one — the gateway had whitelisted the `/api/auth/verify-email` API call the page
+makes, but not the `/verify` *page path* itself, so unauthenticated users clicking the email link got
+redirected to the home page before the page ever rendered. Fixed in `gateway` commit `0565a01`. Whenever
+adding a new pre-login page here, check `gateway/CLAUDE.md` and `gateway`'s `JwtAuthenticationFilter.java`
+in the same change.
