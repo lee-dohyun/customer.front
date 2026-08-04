@@ -4,9 +4,12 @@ import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Logo } from "@posselect/ui";
 
+const REMEMBER_ME_KEY = "posselect_remember_me";
+
 function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
   const [needsVerification, setNeedsVerification] = useState(false);
   const [resending, setResending] = useState(false);
@@ -27,9 +30,14 @@ function LoginForm() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, rememberMe }),
       });
       if (res.ok) {
+        if (rememberMe) {
+          localStorage.setItem(REMEMBER_ME_KEY, "1");
+        } else {
+          localStorage.removeItem(REMEMBER_ME_KEY);
+        }
         const redirectUri = searchParams.get("redirect_uri") || "/mypage";
         window.location.href = redirectUri;
       } else if (res.status === 403) {
@@ -95,20 +103,12 @@ function LoginForm() {
             />
           </div>
 
-          {/*
-            TODO(로그인 상태 유지): 지금 ACCESS_TOKEN 쿠키는 Keycloak 액세스 토큰 만료시간
-            그대로(auth.api AuthController.login의 `.maxAge(token.expiresInSeconds())`, 보통
-            짧음)만 유지된다. 이 체크박스를 실제로 동작시키려면:
-              1. Keycloak "customer" realm 클라이언트에 refresh token 발급이 켜져 있는지 확인
-                 (Direct Access Grant 응답에 refresh_token이 오는지 KeycloakClient.java에서 확인)
-              2. 체크 시 refresh_token을 별도 httpOnly 쿠키(예: REFRESH_TOKEN)로 저장하고,
-                 auth.api에 /api/auth/refresh 같은 엔드포인트를 추가해 만료 임박 시 ACCESS_TOKEN을
-                 갱신하도록 gateway 또는 프론트에서 주기적으로 호출
-              3. 체크 안 하면 지금처럼 세션 쿠키(브라우저 종료 시 소멸)로 유지
-            지금은 UI만 노출, 로직 없음(disabled).
-          */}
           <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--color-neutral-700)", marginBottom: 20 }}>
-            <input type="checkbox" disabled />
+            <input
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+            />
             로그인 상태 유지
           </label>
 
@@ -138,28 +138,11 @@ function LoginForm() {
         </form>
 
         <div style={{ display: "flex", justifyContent: "center", gap: 12, fontSize: "12.5px", color: "var(--color-neutral-700)" }}>
-          {/*
-            TODO(아이디 찾기): 계정 식별자가 곧 이메일이라 "아이디 찾기"는 사실상
-            "가입 시 등록한 이메일 확인"에 가깝다. 이름+연락처 등 부가 식별 정보를 안 받고
-            있어서(auth.api 회원가입 필드 확인 필요) 본인 확인 수단이 없다 — 최소한 이름+가입일
-            정도로 Keycloak Admin API(GET /admin/realms/customer/users?...) 조회 후 마스킹된
-            이메일을 보여주는 새 페이지(/find-id)와 auth.api 엔드포인트 필요.
-          */}
-          <a href="#" style={{ color: "inherit" }}>
+          <a href="/find-id" style={{ color: "inherit" }}>
             아이디 찾기
           </a>
           <span>|</span>
-          {/*
-            TODO(비밀번호 찾기): Keycloak은 내장 "Forgot Password" 이메일 플로우가 있지만
-            이 시스템은 ROPC(Direct Access Grant)로 로그인 UI를 자체 구현 중이라 Keycloak
-            기본 화면으로 리다이렉트하는 방식은 안 씀. 대신 Keycloak Admin API의
-            PUT /admin/realms/customer/users/{id}/execute-actions-email
-            (action: UPDATE_PASSWORD)을 auth.api에서 서비스 계정 토큰으로 호출하는 새
-            엔드포인트(/api/auth/forgot-password) 추가 필요 — 이메일 인증 재발송
-            (EmailVerificationService, 2026-08-01 구현)과 동일한 패턴으로 만들면 됨.
-            프론트는 이메일 입력받는 /find-password 페이지 하나 필요.
-          */}
-          <a href="#" style={{ color: "inherit" }}>
+          <a href="/find-password" style={{ color: "inherit" }}>
             비밀번호 찾기
           </a>
           <span>|</span>

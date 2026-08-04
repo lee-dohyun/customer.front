@@ -47,6 +47,7 @@ export default function MyPage() {
 
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+    localStorage.removeItem("posselect_remember_me");
     window.location.href = "/login";
   };
 
