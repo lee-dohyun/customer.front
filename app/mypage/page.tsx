@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { BlueprintCorners, Tag } from "@posselect/ui";
 
 type Me = { email: string; role: string };
 
@@ -15,6 +16,11 @@ type OrderSummary = {
 const orderStatusLabel: Record<string, string> = {
   CREATED: "결제 대기",
   PAID: "결제 완료",
+};
+
+const orderStatusVariant: Record<string, "warning" | "success" | "neutral"> = {
+  CREATED: "warning",
+  PAID: "success",
 };
 
 export default function MyPage() {
@@ -57,43 +63,55 @@ export default function MyPage() {
   };
 
   return (
-    <div style={{ maxWidth: 400, margin: "80px auto", padding: 32 }}>
+    <div style={{ maxWidth: 480, margin: "80px auto", padding: 32 }}>
       <h2>마이페이지 (JWT 활성 상태에서만 진입 가능)</h2>
-      {error && <p style={{ color: "red" }}>{error}</p>}
+      {error && <p style={{ color: "var(--color-danger)" }}>{error}</p>}
       {me && (
         <>
-          <p>이메일: {me.email}</p>
-          <p>권한: {me.role}</p>
-          <button onClick={handleLogout}>로그아웃</button>
-          <button
-            onClick={handleWithdraw}
-            style={{ marginLeft: 8, color: "#c00", background: "none", border: "1px solid #c00", borderRadius: 4, padding: "6px 10px" }}
-          >
-            회원 탈퇴
-          </button>
+          <div className="card blueprint elev-sm" style={{ marginBottom: 24 }}>
+            <BlueprintCorners />
+            <p style={{ margin: 0 }}>이메일: {me.email}</p>
+            <p style={{ margin: 0 }}>권한: {me.role}</p>
+            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+              <button onClick={handleLogout} className="btn btn-secondary blueprint">
+                <BlueprintCorners />
+                로그아웃
+              </button>
+              <button
+                onClick={handleWithdraw}
+                className="btn btn-ghost"
+                style={{ color: "var(--color-danger)" }}
+              >
+                회원 탈퇴
+              </button>
+            </div>
+          </div>
 
           <h3 style={{ marginTop: 32 }}>주문내역</h3>
           {orders.length === 0 ? (
-            <p style={{ color: "#888" }}>주문 내역이 없습니다.</p>
+            <p className="text-muted">주문 내역이 없습니다.</p>
           ) : (
-            <ul style={{ listStyle: "none", padding: 0 }}>
+            <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
               {orders.map((order) => (
                 <li
                   key={order.id}
                   style={{
                     display: "flex",
                     justifyContent: "space-between",
+                    alignItems: "center",
                     padding: "10px 0",
-                    borderBottom: "1px solid #eee",
+                    borderBottom: "1px solid var(--color-divider)",
                   }}
                 >
                   <span>
                     주문 #{order.id} · {new Date(order.createdAt).toLocaleDateString()} · 상품{" "}
                     {order.itemCount}종
                   </span>
-                  <span>
-                    {order.totalPrice.toLocaleString()}원 (
-                    {orderStatusLabel[order.status] ?? order.status})
+                  <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    {order.totalPrice.toLocaleString()}원
+                    <Tag variant={orderStatusVariant[order.status] ?? "neutral"}>
+                      {orderStatusLabel[order.status] ?? order.status}
+                    </Tag>
                   </span>
                 </li>
               ))}

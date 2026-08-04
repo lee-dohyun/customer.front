@@ -1,20 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { BlueprintCorners } from "@posselect/ui";
 
 type Me = { email: string; name: string };
-
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  padding: 12,
-  marginTop: 4,
-  border: "1.5px solid #bbb",
-  borderRadius: 6,
-  fontSize: 16,
-  background: "#fafbfc",
-  color: "#222",
-  outline: "none",
-};
 
 export default function ProfilePage() {
   const [me, setMe] = useState<Me | null>(null);
@@ -84,8 +73,8 @@ export default function ProfilePage() {
   if (error && !me) {
     return (
       <div style={{ maxWidth: 400, margin: "80px auto", padding: 32, textAlign: "center" }}>
-        <p style={{ color: "red" }}>{error}</p>
-        <a href="/login" style={{ color: "#0070f3" }}>
+        <p style={{ color: "var(--color-danger)" }}>{error}</p>
+        <a href="/login" className="btn btn-ghost">
           로그인하러 가기
         </a>
       </div>
@@ -94,25 +83,17 @@ export default function ProfilePage() {
 
   if (emailChanged) {
     return (
-      <div
-        style={{
-          maxWidth: 400,
-          margin: "80px auto",
-          padding: 32,
-          border: "1px solid #eee",
-          borderRadius: 8,
-          background: "#fff",
-          color: "#000",
-          textAlign: "center",
-        }}
-      >
-        <h2 style={{ marginBottom: 16 }}>이메일이 변경되었습니다</h2>
-        <p style={{ marginBottom: 16, color: "#555" }}>
-          변경 사항을 반영하려면 다시 로그인해주세요.
-        </p>
-        <a href="/login" style={{ color: "#0070f3" }}>
-          다시 로그인하기
-        </a>
+      <div style={{ maxWidth: 400, margin: "80px auto", padding: 32 }}>
+        <div className="card blueprint elev-sm" style={{ textAlign: "center" }}>
+          <BlueprintCorners />
+          <h2 style={{ marginBottom: 8 }}>이메일이 변경되었습니다</h2>
+          <p className="text-muted" style={{ marginBottom: 16 }}>
+            변경 사항을 반영하려면 다시 로그인해주세요.
+          </p>
+          <a href="/login" className="btn btn-ghost">
+            다시 로그인하기
+          </a>
+        </div>
       </div>
     );
   }
@@ -122,68 +103,56 @@ export default function ProfilePage() {
   }
 
   return (
-    <div
-      style={{
-        maxWidth: 400,
-        margin: "80px auto",
-        padding: 32,
-        border: "1px solid #eee",
-        borderRadius: 8,
-        background: "#fff",
-        color: "#000",
-      }}
-    >
-      <h2 style={{ textAlign: "center", marginBottom: 24 }}>나의 정보</h2>
-      <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: 16 }}>
-          <label htmlFor="name">이름</label>
-          <input
-            id="name"
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            style={inputStyle}
-            required
-          />
-        </div>
-        <div style={{ marginBottom: 16 }}>
-          <label htmlFor="email">이메일</label>
-          <input
-            id="email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            style={inputStyle}
-            required
-          />
-        </div>
-        <div style={{ marginBottom: 16 }}>
-          <label htmlFor="password">새 비밀번호 (변경 시에만 입력)</label>
-          <input
-            id="password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            style={inputStyle}
-            placeholder="변경하지 않으려면 비워두세요"
-          />
-        </div>
-        {error && <div style={{ color: "red", marginBottom: 16 }}>{error}</div>}
-        {message && <div style={{ color: "green", marginBottom: 16 }}>{message}</div>}
-        <button
-          type="submit"
-          style={{
-            width: "100%",
-            padding: 10,
-            background: "#0070f3",
-            color: "#fff",
-            border: "none",
-            borderRadius: 4,
-          }}
-        >
-          저장
-        </button>
-      </form>
+    <div style={{ maxWidth: 400, margin: "80px auto", padding: 32 }}>
+      <div className="card blueprint elev-sm">
+        <BlueprintCorners />
+        <h2 style={{ textAlign: "center", marginBottom: 8 }}>나의 정보</h2>
+        <form onSubmit={handleSubmit}>
+          <div className="field" style={{ marginBottom: 16 }}>
+            <label htmlFor="name">이름</label>
+            <input
+              id="name"
+              type="text"
+              className="input"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+            />
+          </div>
+          <div className="field" style={{ marginBottom: 16 }}>
+            <label htmlFor="email">이메일</label>
+            <input
+              id="email"
+              type="email"
+              className="input"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
+          <div className="field" style={{ marginBottom: 16 }}>
+            <label htmlFor="password">새 비밀번호 (변경 시에만 입력)</label>
+            <input
+              id="password"
+              type="password"
+              className="input"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="변경하지 않으려면 비워두세요"
+            />
+          </div>
+          {error && (
+            <div style={{ color: "var(--color-danger)", marginBottom: 16 }}>{error}</div>
+          )}
+          {message && (
+            <div style={{ color: "var(--color-success)", marginBottom: 16 }}>{message}</div>
+          )}
+          <button type="submit" className="btn btn-primary btn-block blueprint">
+            <BlueprintCorners />
+            저장
+          </button>
+        </form>
+      </div>
     </div>
   );
 }

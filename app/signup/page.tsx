@@ -2,6 +2,7 @@
 
 import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import { BlueprintCorners } from "@posselect/ui";
 
 function SignupForm() {
   const [email, setEmail] = useState("");
@@ -40,135 +41,69 @@ function SignupForm() {
   if (done) {
     const loginUrl = `/login?redirect_uri=${encodeURIComponent(redirectUri)}`;
     return (
-      <div
-        style={{
-          maxWidth: 400,
-          margin: "80px auto",
-          padding: 32,
-          border: "1px solid #eee",
-          borderRadius: 8,
-          background: "#fff",
-          color: "#000",
-          textAlign: "center",
-        }}
-      >
-        <h2 style={{ marginBottom: 16 }}>이메일을 확인해주세요</h2>
-        <p style={{ color: "#555", marginBottom: 16 }}>
-          {email}로 인증 메일을 보냈습니다. 메일의 링크를 클릭하면 가입이 완료됩니다.
-        </p>
-        <a href={loginUrl} style={{ color: "#0070f3" }}>
-          로그인하러 가기
-        </a>
+      <div style={{ maxWidth: 400, margin: "80px auto", padding: 32 }}>
+        <div className="card blueprint elev-sm" style={{ textAlign: "center" }}>
+          <BlueprintCorners />
+          <h2 style={{ marginBottom: 8 }}>이메일을 확인해주세요</h2>
+          <p className="text-muted" style={{ marginBottom: 16 }}>
+            {email}로 인증 메일을 보냈습니다. 메일의 링크를 클릭하면 가입이 완료됩니다.
+          </p>
+          <a href={loginUrl} className="btn btn-ghost">
+            로그인하러 가기
+          </a>
+        </div>
       </div>
     );
   }
 
   return (
-    <div
-      style={{
-        maxWidth: 400,
-        margin: "80px auto",
-        padding: 32,
-        border: "1px solid #eee",
-        borderRadius: 8,
-        background: "#fff",
-        color: "#000",
-      }}
-    >
-      <h2 style={{ textAlign: "center", marginBottom: 24 }}>회원가입</h2>
-      <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: 16 }}>
-          <label htmlFor="name">이름</label>
-          <input
-            id="name"
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            style={{
-              width: "100%",
-              padding: 12,
-              marginTop: 4,
-              border: "1.5px solid #bbb",
-              borderRadius: 6,
-              fontSize: 16,
-              background: "#fafbfc",
-              color: "#222",
-              outline: "none",
-              boxShadow: "0 1px 2px rgba(0,0,0,0.03)",
-              transition: "border 0.2s",
-            }}
-            required
-            onFocus={(e) => (e.target.style.border = "1.5px solid #0070f3")}
-            onBlur={(e) => (e.target.style.border = "1.5px solid #bbb")}
-          />
-        </div>
-        <div style={{ marginBottom: 16 }}>
-          <label htmlFor="email">이메일</label>
-          <input
-            id="email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            style={{
-              width: "100%",
-              padding: 12,
-              marginTop: 4,
-              border: "1.5px solid #bbb",
-              borderRadius: 6,
-              fontSize: 16,
-              background: "#fafbfc",
-              color: "#222",
-              outline: "none",
-              boxShadow: "0 1px 2px rgba(0,0,0,0.03)",
-              transition: "border 0.2s",
-            }}
-            required
-            onFocus={(e) => (e.target.style.border = "1.5px solid #0070f3")}
-            onBlur={(e) => (e.target.style.border = "1.5px solid #bbb")}
-          />
-        </div>
-        <div style={{ marginBottom: 16 }}>
-          <label htmlFor="password">비밀번호</label>
-          <input
-            id="password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            style={{
-              width: "100%",
-              padding: 12,
-              marginTop: 4,
-              border: "1.5px solid #bbb",
-              borderRadius: 6,
-              fontSize: 16,
-              background: "#fafbfc",
-              color: "#222",
-              outline: "none",
-              boxShadow: "0 1px 2px rgba(0,0,0,0.03)",
-              transition: "border 0.2s",
-            }}
-            required
-            onFocus={(e) => (e.target.style.border = "1.5px solid #0070f3")}
-            onBlur={(e) => (e.target.style.border = "1.5px solid #bbb")}
-          />
-        </div>
-        {error && (
-          <div style={{ color: "red", marginBottom: 16 }}>{error}</div>
-        )}
-        <button
-          type="submit"
-          style={{
-            width: "100%",
-            padding: 10,
-            background: "#0070f3",
-            color: "#fff",
-            border: "none",
-            borderRadius: 4,
-          }}
-        >
-          회원가입
-        </button>
-      </form>
+    <div style={{ maxWidth: 400, margin: "80px auto", padding: 32 }}>
+      <div className="card blueprint elev-sm">
+        <BlueprintCorners />
+        <h2 style={{ textAlign: "center", marginBottom: 8 }}>회원가입</h2>
+        <form onSubmit={handleSubmit}>
+          <div className="field" style={{ marginBottom: 16 }}>
+            <label htmlFor="name">이름</label>
+            <input
+              id="name"
+              type="text"
+              className="input"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+            />
+          </div>
+          <div className="field" style={{ marginBottom: 16 }}>
+            <label htmlFor="email">이메일</label>
+            <input
+              id="email"
+              type="email"
+              className="input"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
+          <div className="field" style={{ marginBottom: 16 }}>
+            <label htmlFor="password">비밀번호</label>
+            <input
+              id="password"
+              type="password"
+              className="input"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </div>
+          {error && (
+            <div style={{ color: "var(--color-danger)", marginBottom: 16 }}>{error}</div>
+          )}
+          <button type="submit" className="btn btn-primary btn-block blueprint">
+            <BlueprintCorners />
+            회원가입
+          </button>
+        </form>
+      </div>
     </div>
   );
 }
