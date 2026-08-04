@@ -2,7 +2,7 @@
 
 import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { BlueprintCorners } from "@posselect/ui";
+import { Logo } from "@posselect/ui";
 
 function LoginForm() {
   const [email, setEmail] = useState("");
@@ -19,7 +19,7 @@ function LoginForm() {
     setNeedsVerification(false);
     setResent(false);
     if (!email || !password) {
-      setError("이메일과 비밀번호를 입력하세요.");
+      setError("아이디와 비밀번호를 입력하세요.");
       return;
     }
     try {
@@ -63,61 +63,120 @@ function LoginForm() {
   };
 
   return (
-    <div style={{ maxWidth: 400, margin: "80px auto", padding: 32 }}>
-      <div className="card blueprint elev-sm">
-        <BlueprintCorners />
-        <h2 style={{ textAlign: "center", marginBottom: 8 }}>로그인</h2>
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--color-bg)" }}>
+      <div style={{ maxWidth: 420, width: "100%", padding: "36px 32px", border: "1px solid var(--color-divider)" }}>
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 24 }}>
+          <Logo size={24} />
+        </div>
+
         <form onSubmit={handleSubmit}>
-          <div className="field" style={{ marginBottom: 16 }}>
-            <label htmlFor="email">이메일</label>
+          <div className="field" style={{ marginBottom: 12 }}>
+            <label htmlFor="email">아이디</label>
             <input
               id="email"
               type="email"
               className="input"
+              placeholder="이메일 또는 아이디"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
             />
           </div>
-          <div className="field" style={{ marginBottom: 16 }}>
+          <div className="field" style={{ marginBottom: 12 }}>
             <label htmlFor="password">비밀번호</label>
             <input
               id="password"
               type="password"
               className="input"
+              placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
             />
           </div>
+
+          {/* TODO: 로그인 상태 유지(remember me) 미구현 — 체크해도 동작 없음 */}
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--color-neutral-700)", marginBottom: 20 }}>
+            <input type="checkbox" disabled />
+            로그인 상태 유지
+          </label>
+
           {error && (
-            <div className="text-muted" style={{ color: "var(--color-danger)", marginBottom: 16 }}>
-              {error}
-            </div>
+            <div style={{ color: "var(--color-danger)", fontSize: 13, marginBottom: 16 }}>{error}</div>
           )}
-          {needsVerification && (
-            resent ? (
-              <div style={{ color: "var(--color-accent)", marginBottom: 16 }}>
+          {needsVerification &&
+            (resent ? (
+              <div style={{ color: "var(--color-accent)", fontSize: 13, marginBottom: 16 }}>
                 인증 메일을 다시 보냈습니다. 메일함을 확인해주세요.
               </div>
             ) : (
               <button
                 type="button"
-                className="btn btn-secondary btn-block blueprint"
+                className="btn btn-secondary btn-block"
                 onClick={handleResend}
                 disabled={resending}
                 style={{ marginBottom: 16 }}
               >
-                <BlueprintCorners />
                 {resending ? "발송 중..." : "인증 메일 다시 받기"}
               </button>
-            )
-          )}
-          <button type="submit" className="btn btn-primary btn-block blueprint">
-            <BlueprintCorners />
+            ))}
+
+          <button type="submit" className="btn btn-primary btn-block" style={{ marginBottom: 16 }}>
             로그인
           </button>
         </form>
+
+        <div style={{ display: "flex", justifyContent: "center", gap: 12, fontSize: "12.5px", color: "var(--color-neutral-700)" }}>
+          {/* TODO: 아이디 찾기 미구현 */}
+          <a href="#" style={{ color: "inherit" }}>
+            아이디 찾기
+          </a>
+          <span>|</span>
+          {/* TODO: 비밀번호 찾기 미구현 */}
+          <a href="#" style={{ color: "inherit" }}>
+            비밀번호 찾기
+          </a>
+          <span>|</span>
+          <a href="/signup" style={{ color: "var(--color-text)", fontWeight: 600 }}>
+            회원가입
+          </a>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "28px 0" }}>
+          <div style={{ flex: 1, height: 1, background: "var(--color-divider)" }} />
+          <div style={{ fontSize: 12, color: "var(--color-neutral-700)" }}>간편 로그인</div>
+          <div style={{ flex: 1, height: 1, background: "var(--color-divider)" }} />
+        </div>
+
+        {/* TODO: 카카오/네이버/구글 간편 로그인 미구현 — 클릭해도 동작 없음 */}
+        <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
+          <button
+            type="button"
+            aria-label="카카오 로그인"
+            disabled
+            style={{ width: 48, height: 48, border: "1px solid var(--color-divider)", borderRadius: "50%", background: "#FEE500", color: "#1d1f20", cursor: "not-allowed" }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style={{ margin: "0 auto" }}>
+              <path d="M12 3C6.5 3 2 6.6 2 11c0 2.8 1.9 5.3 4.7 6.7-.2.7-1 3.5-1 3.7 0 0 2.6-1.7 3.6-2.4.9.1 1.8.2 2.7.2 5.5 0 10-3.6 10-8s-4.5-8-10-8z"></path>
+            </svg>
+          </button>
+          <button
+            type="button"
+            aria-label="네이버 로그인"
+            disabled
+            style={{ width: 48, height: 48, border: "1px solid var(--color-divider)", borderRadius: "50%", background: "#03C75A", color: "#ffffff", cursor: "not-allowed", fontWeight: 800, fontSize: 15 }}
+          >
+            N
+          </button>
+          <button
+            type="button"
+            aria-label="구글 로그인"
+            disabled
+            style={{ width: 48, height: 48, border: "1px solid var(--color-divider)", borderRadius: "50%", background: "#ffffff", color: "var(--color-text)", cursor: "not-allowed", fontWeight: 700, fontSize: 15 }}
+          >
+            G
+          </button>
+        </div>
       </div>
     </div>
   );
