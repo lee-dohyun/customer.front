@@ -125,7 +125,7 @@ function SignupForm() {
       const res = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, name, phoneNumber: phone }),
+        body: JSON.stringify({ email, password, name, phoneNumber: phone, marketingOptIn: agreeMarketing }),
       });
       if (res.status === 201) {
         setDone(true);
@@ -336,7 +336,6 @@ function SignupForm() {
                 보기
               </a>
             </label>
-            {/* TODO: 마케팅 수신 동의는 UI만 있고 백엔드에 저장 안 됨 — auth.api SignupRequest에 필드 추가 필요 */}
             <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "12.5px", color: "var(--color-neutral-700)", paddingLeft: 24 }}>
               <input
                 type="checkbox"
