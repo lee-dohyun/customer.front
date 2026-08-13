@@ -311,8 +311,12 @@ function SignupForm() {
                 onChange={(e) => setRequiredAgreement(setAgreeTerms, e.target.checked, agreePrivacy)}
               />
               (필수) 이용약관 동의
-              {/* TODO: 실제 약관 페이지 없음 — home.front에 /terms 만들 것 (Footer 링크와 동일) */}
-              <a href="https://home.posselect.com/terms" style={{ marginLeft: "auto", color: "inherit", textDecoration: "underline" }}>
+              <a
+                href="https://home.posselect.com/terms"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ marginLeft: "auto", color: "inherit", textDecoration: "underline" }}
+              >
                 보기
               </a>
             </label>
@@ -323,8 +327,12 @@ function SignupForm() {
                 onChange={(e) => setRequiredAgreement(setAgreePrivacy, e.target.checked, agreeTerms)}
               />
               (필수) 개인정보 수집 및 이용 동의
-              {/* TODO: 실제 개인정보처리방침 페이지 없음 — home.front에 /privacy 만들 것 */}
-              <a href="https://home.posselect.com/privacy" style={{ marginLeft: "auto", color: "inherit", textDecoration: "underline" }}>
+              <a
+                href="https://home.posselect.com/privacy"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ marginLeft: "auto", color: "inherit", textDecoration: "underline" }}
+              >
                 보기
               </a>
             </label>
