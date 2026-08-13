@@ -74,6 +74,10 @@ export default function MyPage() {
             <p style={{ margin: 0 }}>이메일: {me.email}</p>
             <p style={{ margin: 0 }}>권한: {me.role}</p>
             <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+              <a href="/mypage/addresses" className="btn btn-secondary blueprint">
+                <BlueprintCorners />
+                배송지 관리
+              </a>
               <button onClick={handleLogout} className="btn btn-secondary blueprint">
                 <BlueprintCorners />
                 로그아웃
