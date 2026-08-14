@@ -2,7 +2,12 @@
 
 import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { Logo } from "@posselect/ui";
+import { Dialog, Logo } from "@posselect/ui";
+
+const AGREEMENT_CONTENT: Record<"terms" | "privacy", { title: string; url: string }> = {
+  terms: { title: "이용약관", url: "https://home.posselect.com/terms" },
+  privacy: { title: "개인정보 수집 및 이용 동의", url: "https://home.posselect.com/privacy" },
+};
 
 function SignupForm() {
   const [email, setEmail] = useState("");
@@ -22,6 +27,7 @@ function SignupForm() {
   const [agreeMarketing, setAgreeMarketing] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
+  const [openAgreement, setOpenAgreement] = useState<"terms" | "privacy" | null>(null);
   const searchParams = useSearchParams();
   const redirectUri = searchParams.get("redirect_uri") || "/mypage";
 
@@ -311,14 +317,13 @@ function SignupForm() {
                 onChange={(e) => setRequiredAgreement(setAgreeTerms, e.target.checked, agreePrivacy)}
               />
               (필수) 이용약관 동의
-              <a
-                href="https://home.posselect.com/terms"
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ marginLeft: "auto", color: "inherit", textDecoration: "underline" }}
+              <button
+                type="button"
+                onClick={() => setOpenAgreement("terms")}
+                style={{ marginLeft: "auto", background: "none", border: "none", padding: 0, color: "inherit", textDecoration: "underline", cursor: "pointer", font: "inherit" }}
               >
                 보기
-              </a>
+              </button>
             </label>
             <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "12.5px", color: "var(--color-neutral-700)", paddingLeft: 24 }}>
               <input
@@ -327,14 +332,13 @@ function SignupForm() {
                 onChange={(e) => setRequiredAgreement(setAgreePrivacy, e.target.checked, agreeTerms)}
               />
               (필수) 개인정보 수집 및 이용 동의
-              <a
-                href="https://home.posselect.com/privacy"
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ marginLeft: "auto", color: "inherit", textDecoration: "underline" }}
+              <button
+                type="button"
+                onClick={() => setOpenAgreement("privacy")}
+                style={{ marginLeft: "auto", background: "none", border: "none", padding: 0, color: "inherit", textDecoration: "underline", cursor: "pointer", font: "inherit" }}
               >
                 보기
-              </a>
+              </button>
             </label>
             <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "12.5px", color: "var(--color-neutral-700)", paddingLeft: 24 }}>
               <input
@@ -363,6 +367,24 @@ function SignupForm() {
           </a>
         </div>
       </div>
+
+      {openAgreement && (
+        <Dialog
+          title={AGREEMENT_CONTENT[openAgreement].title}
+          onClose={() => setOpenAgreement(null)}
+          actions={
+            <button type="button" onClick={() => setOpenAgreement(null)} className="btn btn-secondary">
+              닫기
+            </button>
+          }
+        >
+          <iframe
+            src={AGREEMENT_CONTENT[openAgreement].url}
+            title={AGREEMENT_CONTENT[openAgreement].title}
+            style={{ width: "100%", height: "55vh", border: "1px solid var(--color-divider)" }}
+          />
+        </Dialog>
+      )}
     </div>
   );
 }
