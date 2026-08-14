@@ -409,17 +409,18 @@ function SignupForm() {
         <Dialog
           title={AGREEMENT_CONTENT[openAgreement].title}
           onClose={() => setOpenAgreement(null)}
+          maxWidth={640}
           actions={
             <button type="button" onClick={() => setOpenAgreement(null)} className="btn btn-secondary">
               닫기
             </button>
           }
         >
-          <div style={{ maxHeight: "55vh", overflowY: "auto", display: "flex", flexDirection: "column", gap: 20, paddingRight: 4 }}>
+          <div style={{ maxHeight: "60vh", overflowY: "auto", display: "flex", flexDirection: "column", gap: 20, paddingRight: 4 }}>
             {AGREEMENT_CONTENT[openAgreement].articles.map((article) => (
               <section key={article.title}>
                 <h3 style={{ marginBottom: 6, fontSize: 14 }}>{article.title}</h3>
-                <p style={{ whiteSpace: "pre-line", fontSize: 13, opacity: 0.88 }}>{article.body}</p>
+                <p style={{ whiteSpace: "pre-line" }}>{article.body}</p>
               </section>
             ))}
           </div>
