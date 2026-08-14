@@ -416,7 +416,7 @@ function SignupForm() {
             </button>
           }
         >
-          <div style={{ maxHeight: "60vh", overflowY: "auto", display: "flex", flexDirection: "column", gap: 20, paddingRight: 4 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
             {AGREEMENT_CONTENT[openAgreement].articles.map((article) => (
               <section key={article.title}>
                 <h3 style={{ marginBottom: 6, fontSize: 14 }}>{article.title}</h3>
