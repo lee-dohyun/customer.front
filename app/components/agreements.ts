@@ -12,6 +12,8 @@ export type AgreementArticle = { title: string; body: string };
  * 향후 약관 내용이 DB에서 동적으로 관리되기 전까지 사용되는 하드코딩된 약관 데이터 제공을 위함.
  * 앱 및 웹 양쪽에서 공통으로 사용하기 쉽도록 별도 모듈로 분리함.
  *
+ * @author leedohyun
+ * @since 2026-08-18
  * @type {Record<"terms" | "privacy", { title: string; articles: AgreementArticle[] }>}
  */
 export const AGREEMENT_CONTENT: Record<"terms" | "privacy", { title: string; articles: AgreementArticle[] }> = {

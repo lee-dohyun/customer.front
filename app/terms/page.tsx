@@ -12,6 +12,11 @@ export const metadata: Metadata = {
  * 약관 내용을 모달 창 밖에서도 독립적인 URL을 통해 접근할 수 있도록 제공하기 위함.
  * 사용자가 약관의 상세 내용을 모바일/데스크탑 환경에서 읽기 쉽게 구성하여 사용자 경험(UX)을 향상시킴.
  *
+ * @author leedohyun
+ * @since 2026-08-18
+ * @see AGREEMENT_CONTENT (약관 원본 데이터)
+ * @see {@link https://github.com/lee-dohyun/customer.front/issues} (GitHub Project #2 - DB 전환 사전 작업)
+ * 
  * @returns {JSX.Element} 이용약관 페이지 렌더링
  */
 export default function TermsPage() {

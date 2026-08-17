@@ -11,6 +11,10 @@ import { AGREEMENT_CONTENT } from "../components/agreements";
  * 사용자로부터 회원가입 정보를 입력받고, 약관 동의 및 본인 인증을 수행하기 위함.
  * 약관 데이터를 분리된 모듈에서 가져와 렌더링함으로써 하드코딩을 방지하고 유지보수성을 높였음.
  *
+ * @author leedohyun
+ * @since 2026-08-18
+ * @see AGREEMENT_CONTENT
+ *
  * @returns {JSX.Element} 회원가입 폼 렌더링
  */
 function SignupForm() {
