@@ -3,7 +3,6 @@
 import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Dialog, Logo } from "@posselect/ui";
-import { AGREEMENT_CONTENT } from "../components/agreements";
 
 /**
  * 회원가입 폼 컴포넌트
@@ -13,7 +12,7 @@ import { AGREEMENT_CONTENT } from "../components/agreements";
  *
  * @author leedohyun
  * @since 2026-08-18
- * @see AGREEMENT_CONTENT
+ * @see {@link https://github.com/lee-dohyun/customer.front/issues/1} (GitHub Project #2 - DB 전환 사전 작업)
  *
  * @returns {JSX.Element} 회원가입 폼 렌더링
  */
@@ -37,6 +36,25 @@ function SignupForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [openAgreement, setOpenAgreement] = useState<"terms" | "privacy" | null>(null);
+  const [agreementData, setAgreementData] = useState<{ title: string; articles: { title: string; body: string }[] } | null>(null);
+  const [agreementLoading, setAgreementLoading] = useState(false);
+
+  const handleOpenAgreement = async (type: "terms" | "privacy") => {
+    setOpenAgreement(type);
+    setAgreementData(null);
+    setAgreementLoading(true);
+    try {
+      const res = await fetch(`/api/agreements?type=${type}`);
+      if (res.ok) {
+        const data = await res.json();
+        setAgreementData(data);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setAgreementLoading(false);
+    }
+  };
   const searchParams = useSearchParams();
   const redirectUri = searchParams.get("redirect_uri") || "/mypage";
 
@@ -331,7 +349,7 @@ function SignupForm() {
               (필수) 이용약관 동의
               <button
                 type="button"
-                onClick={() => setOpenAgreement("terms")}
+                onClick={() => handleOpenAgreement("terms")}
                 style={{ marginLeft: "auto", background: "none", border: "none", padding: 0, color: "inherit", textDecoration: "underline", cursor: "pointer", font: "inherit" }}
               >
                 보기
@@ -346,7 +364,7 @@ function SignupForm() {
               (필수) 개인정보 수집 및 이용 동의
               <button
                 type="button"
-                onClick={() => setOpenAgreement("privacy")}
+                onClick={() => handleOpenAgreement("privacy")}
                 style={{ marginLeft: "auto", background: "none", border: "none", padding: 0, color: "inherit", textDecoration: "underline", cursor: "pointer", font: "inherit" }}
               >
                 보기
@@ -382,7 +400,7 @@ function SignupForm() {
 
       {openAgreement && (
         <Dialog
-          title={AGREEMENT_CONTENT[openAgreement].title}
+          title={agreementData ? agreementData.title : "약관 확인"}
           onClose={() => setOpenAgreement(null)}
           maxWidth={640}
           actions={
@@ -392,12 +410,22 @@ function SignupForm() {
           }
         >
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-            {AGREEMENT_CONTENT[openAgreement].articles.map((article) => (
-              <section key={article.title}>
-                <h3 style={{ marginBottom: 6, fontSize: 14 }}>{article.title}</h3>
-                <p style={{ whiteSpace: "pre-line" }}>{article.body}</p>
-              </section>
-            ))}
+            {agreementLoading ? (
+              <div style={{ padding: "40px", textAlign: "center", color: "var(--color-neutral-700)" }}>
+                약관 데이터를 불러오는 중입니다...
+              </div>
+            ) : agreementData ? (
+              agreementData.articles.map((article) => (
+                <section key={article.title}>
+                  <h3 style={{ marginBottom: 6, fontSize: 14 }}>{article.title}</h3>
+                  <p style={{ whiteSpace: "pre-line" }}>{article.body}</p>
+                </section>
+              ))
+            ) : (
+              <div style={{ padding: "40px", textAlign: "center", color: "var(--color-danger)" }}>
+                약관을 불러오는데 실패했습니다. 잠시 후 다시 시도해주세요.
+              </div>
+            )}
           </div>
         </Dialog>
       )}

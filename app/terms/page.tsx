@@ -1,10 +1,24 @@
 import { Metadata } from "next";
-import { AGREEMENT_CONTENT } from "../components/agreements";
+import { headers } from "next/headers";
 
 export const metadata: Metadata = {
   title: "이용약관 | PosSelect",
   description: "PosSelect 쇼핑몰 서비스 이용약관을 확인하세요.",
 };
+
+export const dynamic = "force-dynamic";
+
+type AgreementArticle = { title: string; body: string };
+type AgreementData = { title: string; articles: AgreementArticle[] };
+
+async function getTerms(): Promise<AgreementData> {
+  const headersList = await headers();
+  const host = headersList.get("host") || "localhost:3000";
+  const protocol = host.includes("localhost") ? "http" : "https";
+  const res = await fetch(`${protocol}://${host}/api/agreements?type=terms`, { cache: 'no-store' });
+  if (!res.ok) throw new Error("Failed to fetch terms");
+  return res.json();
+}
 
 /**
  * 이용약관 페이지 컴포넌트
@@ -14,13 +28,12 @@ export const metadata: Metadata = {
  *
  * @author leedohyun
  * @since 2026-08-18
- * @see AGREEMENT_CONTENT (약관 원본 데이터)
- * @see {@link https://github.com/lee-dohyun/customer.front/issues} (GitHub Project #2 - DB 전환 사전 작업)
+ * @see {@link https://github.com/lee-dohyun/customer.front/issues/1} (GitHub Project #2 - DB 전환 사전 작업)
  * 
  * @returns {JSX.Element} 이용약관 페이지 렌더링
  */
-export default function TermsPage() {
-  const content = AGREEMENT_CONTENT.terms;
+export default async function TermsPage() {
+  const content = await getTerms();
 
   return (
     <div style={{ padding: "40px 20px", maxWidth: "800px", margin: "0 auto", fontFamily: "var(--font-sans, sans-serif)", lineHeight: 1.6, color: "var(--color-text, #333)" }}>
