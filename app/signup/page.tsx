@@ -3,14 +3,15 @@
 import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Dialog, Logo } from "@posselect/ui";
-import { AGREEMENT_CONTENT, AgreementArticle } from "../components/agreements";
+import { AGREEMENT_CONTENT } from "../components/agreements";
 
 /**
  * 회원가입 폼 컴포넌트
  *
- * @description 사용자로부터 회원가입 정보를 입력받고, 약관 동의 및 본인 인증을 수행함.
- * 회원가입 약관 내용을 별도 모듈(AGREEMENT_CONTENT)에서 불러오도록 개선하여
- * 중복된 하드코딩 데이터를 제거하고 유지보수성을 높임.
+ * 사용자로부터 회원가입 정보를 입력받고, 약관 동의 및 본인 인증을 수행하기 위함.
+ * 약관 데이터를 분리된 모듈에서 가져와 렌더링함으로써 하드코딩을 방지하고 유지보수성을 높였음.
+ *
+ * @returns {JSX.Element} 회원가입 폼 렌더링
  */
 function SignupForm() {
   const [email, setEmail] = useState("");

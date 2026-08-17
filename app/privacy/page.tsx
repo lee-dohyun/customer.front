@@ -1,17 +1,19 @@
 import { Metadata } from "next";
 import { AGREEMENT_CONTENT } from "../components/agreements";
 
-/**
- * 개인정보 처리방침 페이지 컴포넌트
- *
- * @description 회원가입 및 서비스 이용 시 개인정보 수집/이용 등에 관한 방침을 단독 페이지로 제공하기 위해 작성됨.
- * 사용자가 약관의 상세 내용을 모바일/데스크탑 환경에서 읽기 쉽게 구성함.
- */
 export const metadata: Metadata = {
   title: "개인정보 처리방침 | PosSelect",
   description: "PosSelect 쇼핑몰 서비스 개인정보 처리방침을 확인하세요.",
 };
 
+/**
+ * 개인정보 처리방침 페이지 컴포넌트
+ *
+ * 약관 내용을 모달 창 밖에서도 독립적인 URL을 통해 접근할 수 있도록 제공하기 위함.
+ * 사용자가 약관의 상세 내용을 모바일/데스크탑 환경에서 읽기 쉽게 구성하여 사용자 경험(UX)을 향상시킴.
+ *
+ * @returns {JSX.Element} 개인정보 처리방침 페이지 렌더링
+ */
 export default function PrivacyPage() {
   const content = AGREEMENT_CONTENT.privacy;
 

@@ -1,13 +1,18 @@
 /**
  * 약관 조항 타입
+ * @typedef {Object} AgreementArticle
+ * @property {string} title - 조항 제목
+ * @property {string} body - 조항 본문
  */
 export type AgreementArticle = { title: string; body: string };
 
 /**
  * 서비스 약관 및 개인정보 처리방침 정적 데이터
  *
- * @description 향후 약관 내용이 DB에서 동적으로 관리되기 전까지 사용되는 하드코딩된 약관 데이터.
+ * 향후 약관 내용이 DB에서 동적으로 관리되기 전까지 사용되는 하드코딩된 약관 데이터 제공을 위함.
  * 앱 및 웹 양쪽에서 공통으로 사용하기 쉽도록 별도 모듈로 분리함.
+ *
+ * @type {Record<"terms" | "privacy", { title: string; articles: AgreementArticle[] }>}
  */
 export const AGREEMENT_CONTENT: Record<"terms" | "privacy", { title: string; articles: AgreementArticle[] }> = {
   terms: {
