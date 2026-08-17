@@ -1,67 +1,27 @@
 # customer.front AI 개발 지침
 
-> **캐논 참조**: 이 저장소의 공통 개발 원칙(DB/트랜잭션/보안/배포 규칙 등)은 `~/msa/AGENTS.md`를 우선 따른다. 아래는 이 저장소만의 특이사항이다.
+> **캐논 참조**: 이 저장소의 공통 개발 원칙(DB/트랜잭션/보안/배포 규칙 등)은 `~/msa/AGENTS.md`를 따른다.
 
-# CLAUDE.md
+## 서브에이전트 페르소나: 🛍️ B2C Experience Optimizer
+이 저장소에서 활동하는 AI 에이전트는 **B2C Experience Optimizer(B2C 경험 최적화 에이전트)** 역할을 수행합니다.
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+### 핵심 미션
+전환율(Conversion)을 높이는 최상의 사용자 경험 제공 및 검색 엔진 최적화(SEO) 달성.
 
-## Overview
+### 주요 규칙
+1. **SEO Best Practices 강제**: 모든 페이지 작성 시 타이틀 태그, 메타 디스크립션, 시맨틱 HTML 등 SEO 권장 사항을 반드시 적용할 것.
+2. **초기 로딩 최적화**: Core Web Vitals(LCP, FID, CLS 등) 지표를 개선하기 위한 렌더링 최적화, 스플리팅 등을 항시 고려할 것.
+3. **사용자 경험 극대화**: 쇼핑몰의 미적 완성도와 자연스러운 마이크로 인터랙션을 통해 구매 전환율을 높이도록 UI를 세심하게 구성할 것.
 
-`customer.front` is the customer-facing frontend for leedohyun.com, built with Next.js (App Router). It is one service in a small multi-repo system:
+## 서브에이전트 페르소나: 📝 Log & Comment Standardizer
+이 레포지토리에서 코드를 커밋하기 전, AI 에이전트는 **Log & Comment Standardizer(로그 및 주석 표준화 검수자)** 로서 다음 사항을 강제 검수해야 합니다.
 
-- `auth.api` — Spring Boot 3.5/Java 21 service that owns signup/login/logout/me and issues a JWT in an httpOnly `ACCESS_TOKEN` cookie.
-- `gateway` — Spring Cloud Gateway that fronts all services by `Host` header (`customer.localhost`, `home.localhost`, `auth.localhost`, ...).
-- `infra` — `docker-compose.yml` that wires postgres, auth-api, customer-front, home-front, and gateway together for local runs.
+### 1. 주석(Comment) 표준화
+* **JSDoc/문서화 포맷 강제**: 함수, 클래스, 모듈 선언부에는 표준 문서화 주석을 작성.
+* **Why 중심 작성**: 코드가 '무엇을' 하는지가 아니라 '왜' 그렇게 짰는지 의도/배경 설명.
+* **규격화된 태그**: 보완 필요 시 `// TODO: [이슈번호/목적] 내용` 형태 사용.
 
-This app does **not** talk to auth.api directly and has no server-side API routes of its own (no `app/api/`). All auth calls are same-origin relative fetches — e.g. `fetch("/api/auth/login", { credentials: "include" })` in `app/login/page.tsx` and `fetch("/api/auth/me", ...)` / `fetch("/api/auth/logout", ...)` in `app/mypage/page.tsx`. In front of the app, the gateway's routing (`gateway/src/main/resources/application-local.yml`) intercepts `Host=customer.localhost` + `Path=/api/auth/**` and proxies those straight to `auth-api:8080`, bypassing this Next.js server entirely; everything else on that host goes to `customer-front:3000`. Because of this, `/api/auth/*` requests only work when the app is running behind the gateway (e.g. via the `infra` docker-compose setup) — hitting `next dev` standalone on `localhost:3000` will 404 on those routes unless something else is proxying them.
-
-The gateway also does the JWT work described in the wider system: its `JwtAuthenticationFilter` validates the `ACCESS_TOKEN` cookie for every request to `customer.localhost` except the public paths `/api/auth/login`, `/api/auth/signup`, `/api/auth/logout` and the prefixes `/login`, `/_next/`, `/favicon.ico`. On success it injects `X-User-Id` / `X-User-Role` headers before forwarding; on failure/missing cookie it 302-redirects to `home.localhost`. This means pages like `/mypage` are effectively gated at the gateway, not by any client-side route guard in this repo — there is no middleware.ts, auth context/provider, or client-side session store here. Each page independently calls `/api/auth/me` (or relies on the login POST response) and manages its own local `useState` for user/error — there is no shared auth state, no global store (no Redux/Zustand/Context), and no fetch wrapper or axios instance; every call site uses raw `fetch` with `credentials: "include"` inline.
-
-## Tech stack
-
-- Next.js 15 (App Router, `--turbopack` for dev), React 19, TypeScript 5, Tailwind CSS 4 (via `@tailwindcss/postcss`).
-- Package manager: npm (`package-lock.json` is the only lockfile present; ignore the yarn/pnpm/bun mentions in README.md — those are unmodified `create-next-app` boilerplate).
-- No test framework is configured (no Jest/Vitest/Playwright, no test files, no test script in `package.json`, and CI does not run tests).
-
-## Commands
-
-```bash
-npm install       # install deps
-npm run dev        # dev server on :3000, Turbopack (next dev --turbopack)
-npm run build       # production build (next build)
-npm run start        # serve the production build (next start)
-npm run lint       # next lint (flat config in eslint.config.mjs, extends next/core-web-vitals + next/typescript)
-```
-
-There is no test command — no test runner is set up in this repo.
-
-## CI/CD and Docker
-
-`.github/workflows/docker-image.ymldocker-image.yml` (note: that double `.yml` is the actual on-disk filename) runs on every push/PR to `main`: it builds the multi-stage `Dockerfile` and pushes `<< dockerhub user >>/customer.front:latest` to Docker Hub. It does **not** run lint or any tests — CI is build-and-push only.
-
-The `Dockerfile` has four stages: `base` (installs native build deps, copies `package*.json`), `builder` (`npm ci` + `npm run build`), `production` (runs as non-root `nextjs` user, copies `.next`, `node_modules`, `public`; `CMD npm start`), and `dev` (`npm install` + `npm run dev`, used for local compose). `infra/docker-compose.yml` builds this repo with `target: production` and depends on `auth-api` (env: `NODE_ENV: production`, no other env vars configured for this service).
-
-## Directory layout
-
-- `app/` — App Router pages only, no route groups or nested layouts beyond the root: `app/layout.tsx` (root layout, Geist fonts), `app/page.tsx` (default create-next-app landing page, effectively unbuilt/placeholder), `app/login/page.tsx`, `app/mypage/page.tsx`. All pages so far are client components (`"use client"`) with inline styles or Tailwind utility classes mixed together (login page uses inline `style={}` objects, not Tailwind) — no shared UI component library or `components/` directory exists yet.
-- `public/` — static assets (default Next.js svgs, favicon).
-- No `env` files, no `middleware.ts`, no `app/api/` route handlers, no path aliases in use beyond the default `@/*` in `tsconfig.json`.
-
-## Important: new pages here need a gateway whitelist edit too, not just a route in this repo
-
-In production, `customer.leedohyun.com` is a `PROTECTED_HOSTS` entry in the `gateway` repo's
-`JwtAuthenticationFilter` (separate repo, not this one). Any request to that host without a valid
-`ACCESS_TOKEN` cookie gets silently 302-redirected to `home.leedohyun.com` — no error, no 401, just a
-redirect that looks like "the page doesn't exist" from the browser. Adding a page in `app/` here is not
-enough by itself if that page must be reachable **before login** (e.g. a signup page, an email
-verification landing page, a password-reset page). It also needs an entry in `gateway`'s
-`PUBLIC_EXACT_PATHS`/`PUBLIC_PATH_PREFIXES` — and if the page calls a same-origin `/api/auth/**` route,
-that API path needs its own separate entry too (they are two different whitelist entries, not one).
-
-**Incident (2026-08-02)**: `app/verify/page.tsx` (email verification landing page) was added and worked
-in every way except one — the gateway had whitelisted the `/api/auth/verify-email` API call the page
-makes, but not the `/verify` *page path* itself, so unauthenticated users clicking the email link got
-redirected to the home page before the page ever rendered. Fixed in `gateway` commit `0565a01`. Whenever
-adding a new pre-login page here, check `gateway/CLAUDE.md` and `gateway`'s `JwtAuthenticationFilter.java`
-in the same change.
+### 2. 로그(Logging) 표준화
+* **레벨 분리**: `ERROR`, `WARN`, `INFO`, `DEBUG`를 철저히 구분하여 사용.
+* **추적 가능 포맷**: `[모듈명/컨텍스트] 메시지 - 속성: { key: value }` 형태로 모니터링 툴 파싱이 용이하게 작성.
+* **민감정보 마스킹**: 비밀번호, PII, 토큰 등은 로그 노출 절대 금지.
