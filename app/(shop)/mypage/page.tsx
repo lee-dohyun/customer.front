@@ -23,10 +23,28 @@ const orderStatusVariant: Record<string, "warning" | "success" | "neutral"> = {
   PAID: "success",
 };
 
+type WishlistItem = { id: number; productId: number; productName: string };
+
 export default function MyPage() {
   const [me, setMe] = useState<Me | null>(null);
   const [error, setError] = useState("");
   const [orders, setOrders] = useState<OrderSummary[]>([]);
+  const [wishlists, setWishlists] = useState<WishlistItem[]>([]);
+  const [wishlistPage, setWishlistPage] = useState(0);
+  const [hasMoreWishlists, setHasMoreWishlists] = useState(false);
+
+  const fetchWishlists = (page: number, append = false) => {
+    fetch(`/api/wishlists?page=${page}&size=10`, { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : { content: [], last: true }))
+      .then((data) => {
+        setWishlists((prev) => append ? [...prev, ...(data.content || [])] : (data.content || []));
+        setHasMoreWishlists(!data.last);
+      })
+      .catch(() => {
+        if (!append) setWishlists([]);
+        setHasMoreWishlists(false);
+      });
+  };
 
   useEffect(() => {
     fetch("/api/auth/me", { credentials: "include" })
@@ -43,7 +61,15 @@ export default function MyPage() {
       .then((res) => (res.ok ? res.json() : []))
       .then(setOrders)
       .catch(() => setOrders([]));
+
+    fetchWishlists(0);
   }, []);
+
+  const loadMoreWishlists = () => {
+    const nextPage = wishlistPage + 1;
+    setWishlistPage(nextPage);
+    fetchWishlists(nextPage, true);
+  };
 
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
@@ -60,6 +86,21 @@ export default function MyPage() {
       window.location.href = "/login";
     } else {
       setError("탈퇴 처리에 실패했습니다.");
+    }
+  };
+
+  const removeWishlist = async (productId: number) => {
+    if (!confirm("찜 목록에서 삭제하시겠습니까?")) return;
+    try {
+      const res = await fetch(`/api/wishlists/${productId}`, { method: "DELETE", credentials: "include" });
+      if (res.ok) {
+        setWishlists((prev) => prev.filter((item) => item.productId !== productId));
+      } else {
+        alert("삭제에 실패했습니다.");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("삭제에 실패했습니다.");
     }
   };
 
@@ -122,8 +163,48 @@ export default function MyPage() {
               ))}
             </ul>
           )}
+
+          <h3 style={{ marginTop: 32 }}>내 찜 목록</h3>
+          {wishlists.length === 0 ? (
+            <p className="text-muted">찜한 상품이 없습니다.</p>
+          ) : (
+            <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+              {wishlists.map((item) => (
+                <li
+                  key={item.id}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: "12px 0",
+                    borderBottom: "1px solid var(--color-divider)",
+                  }}
+                >
+                  <a href={`${process.env.NEXT_PUBLIC_PRODUCT_FRONT_URL || "http://localhost:3002"}/products/${item.productId}`} style={{ textDecoration: "none", color: "inherit", flex: 1 }}>
+                    <span style={{ fontWeight: 500 }}>{item.productName}</span>
+                  </a>
+                  <button 
+                    onClick={() => removeWishlist(item.productId)}
+                    className="btn btn-ghost"
+                    style={{ color: "var(--color-danger)", padding: "4px 8px" }}
+                  >
+                    삭제
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {hasMoreWishlists && (
+            <div style={{ textAlign: "center", marginTop: 16 }}>
+              <button className="btn btn-secondary blueprint" onClick={loadMoreWishlists}>
+                <BlueprintCorners />
+                더보기
+              </button>
+            </div>
+          )}
         </>
       )}
     </div>
   );
 }
+
