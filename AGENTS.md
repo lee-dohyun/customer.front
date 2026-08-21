@@ -1,3 +1,282 @@
 # customer.front AI 개발 지침
 
-> **캐논 참조**: 이 저장소의 공통 개발 원칙(DB/트랜잭션/보안/배포 규칙 등)은 `~/msa/AGENTS.md`를 따른다.
+> **캐논 참조**: 공통 개발 원칙(DB/트랜잭션/보안/배포 규칙 등)은 `~/msa/AGENTS.md`를 따른다.
+> 이 문서에는 **이 저장소에서만 통하는 사실과 함정**만 적는다.
+
+## 이 저장소는 무엇인가
+
+`customer.posselect.com`을 서비스하는 Next.js(App Router) **회원/계정** 프론트엔드다.
+로그인·회원가입·아이디/비밀번호 찾기·이메일 인증·마이페이지·배송지 관리가 여기 있다.
+게이트웨이 라우트 `customer-front`가 `customer-front.customer.svc.cluster.local:3000`으로 프록시하고,
+K3s에는 `customer` 네임스페이스의 `deployment/customer-front`로 떠 있다.
+
+데이터는 대부분 브라우저에서 동일 출처(`/api/auth/**`, `/api/orders/**`)로 호출하고, 게이트웨이가
+auth-api/order-api로 프록시한다. 자체 route handler는 `app/api/agreements/route.ts` 하나뿐이다
+(약관 본문을 auth-api에서 받아 중계, 서버사이드 호출이라 netpol `allow-auth-api`에 `app: customer-front`가
+등록돼 있다).
+
+## 실제 함정 (전부 이 저장소 코드/게이트웨이 설정에서 확인된 것)
+
+### 1. 이 호스트는 게이트웨이의 유일한 `protected-hosts`다 — 새 페이지는 기본적으로 "안 보인다"
+
+`gateway`의 `application.yml`에서 `gateway.security.protected-hosts` 기본값이
+`customer.posselect.com`이다. `ACCESS_TOKEN` 쿠키가 없는 요청은 `JwtAuthenticationFilter`가
+**에러도 401도 없이 로그인 페이지로 302 리다이렉트**한다. 즉 로그인 전에 보여야 할 페이지를
+`app/` 아래에 만드는 것만으로는 부족하다.
+
+- **페이지 경로와 그 페이지가 부르는 API 경로는 서로 다른 화이트리스트 항목이다.**
+  2026-08-02 `/verify`(이메일 인증 랜딩) 사고가 정확히 이것이었다 — API(`/api/auth/verify-email`)만
+  등록돼 있고 페이지 경로 `/verify`가 빠져서, 메일 링크를 누른 모든 비로그인 사용자가 홈으로
+  튕겼다. gateway 커밋 `0565a01`에서 `PUBLIC_EXACT_PATHS`에 `/verify`를 추가해 해결.
+- 현재 공개 처리된 것: `PUBLIC_EXACT_PATHS`에 `/verify`, `/api/agreements`, `/api/auth/*` 다수 /
+  `PUBLIC_PATH_PREFIXES`에 `/login`, `/signup`, `/find-id`, `/find-password`, `/reset-password`,
+  `/terms`, `/privacy`, `/_next/`, `/favicon.ico`, `/icon.svg`.
+- 새 pre-login 페이지를 추가할 때는 `.claude/agents/gateway-route-guard.md` 서브에이전트를 쓸 것.
+
+### 2. 이 호스트는 쓰기 요청이 게이트웨이에서 차단된다
+
+라우트 `customer-front-block-write`가 POST/PUT/PATCH/DELETE를 `SetStatus=403`으로 막는다
+(msa #155 대응). `/api/auth/**`, `/api/orders/**`는 앞선 라우트가 먼저 채가므로 정상 동작한다.
+
+- **자체 route handler에 `POST`를 추가하거나 Server Action을 쓰면 프로덕션에서 403**이다.
+  `app/api/agreements/route.ts`가 GET 전용인 것도 그래서다. 로컬 dev는 게이트웨이를 안 거쳐서
+  멀쩡히 돌아가므로 배포 후에야 드러난다.
+
+### 3. SSR에서 자기 호스트로 되돌아오는 페이지는 `PreserveHostHeader`에 의존한다
+
+`/terms`, `/privacy`는 SSR에서 `headers().get("host")`로 자기 주소를 재구성해
+`https://<host>/api/agreements`를 다시 호출한다. 게이트웨이 `customer-front` 라우트에
+`PreserveHostHeader` 필터가 없으면 Host가 내부 주소(평문 3000 포트)로 재작성돼 TLS 핸드셰이크가
+깨지고 500이 난다(2026-08-20 발견, 게이트웨이 설정에 주석으로 기록됨). 같은 패턴의 페이지를
+추가한다면 이 의존을 알고 있어야 한다.
+
+### 4. `.claude/worktrees/`가 실제로 origin까지 올라간 적이 있다
+
+이 저장소는 `.gitignore`에 `.claude/worktrees/`가 없어서 worktree 디렉터리 하나가 gitlink(모드
+160000)로 커밋돼 push된 이력이 있다(2026-08-21 확인, 커밋 `89945ca`). `.gitignore`에 규칙을
+추가했으니 유지할 것. `git add -A` / `git add .`는 여전히 조심할 것.
+
+### 5. `@posselect/ui`는 git 의존성이라 자동 반영되지 않는다
+
+`"@posselect/ui": "github:lee-dohyun/posselect-ui"` + `next.config.ts`의 `transpilePackages`.
+버전이 고정돼 있지 않고, posselect-ui를 고쳐도 **이 저장소를 다시 빌드해야** 반영된다(소비 저장소
+5곳 각각).
+그리고 **정의되지 않은 CSS 변수는 조용히 죽는다** — posselect-ui `tokens.css`에 없는 변수를
+배경색으로 쓰면 에러 없이 배경이 투명해진다(hero 배너 인시던트). 새 CSS 변수를 쓰기 전에 토큰
+정의를 먼저 확인할 것.
+
+### 6. CI는 타입/린트를 안 본다. main push = 즉시 프로덕션
+
+`.github/workflows/docker-image.yml`은 Docker 빌드/푸시 성공만을 게이트로 삼고 `lint`/`typecheck`를
+돌리지 않는다(Trivy도 `exit-code: "0"` 리포트 전용). 이어지는 `deploy` 잡이 self-hosted 러너에서
+`kubectl set image deployment/customer-front -n customer`를 실행한다.
+
+→ push 전에 로컬에서 반드시 실행:
+
+```bash
+npm run typecheck   # tsc --noEmit
+npm run lint
+```
+
+`.claude/hooks/pre-push-verify.sh`가 PreToolUse 훅으로 이걸 강제한다(정당한 사유가 있을 때만
+`CLAUDE_SKIP_PUSH_VERIFY=1`).
+
+## 작업 기록
+
+`~/msa/AGENTS.md` §4의 Task Execution Workflow를 따른다. 이 저장소에 한정된 주의:
+
+- **Draft Issue를 만들지 말 것.** 저장소에 연결되지 않은 Draft 카드는 추적이 끊기고, 과거 중복 카드가
+  210여 건 쌓인 사고가 있었다. 반드시 `gh issue create -R lee-dohyun/customer.front ...`로 **실제
+  저장소 이슈**를 만든 뒤 GitHub Project #2에 연결하고 Status를 `In Progress`로 바꾼 다음 코드를
+  건드린다. (`gh`는 풀 경로 `~/.local/bin/gh`.)
+- 완료 시 커밋 메시지의 `Closes #N` 또는 `gh issue close`로 반드시 닫는다.
+- 상세 절차는 `msa-work-log` 스킬(사용자 레벨, 이 저장소 세션에서도 로드됨)을 따른다.
+- 기능별 상세 기록은 `docs/YYYY-MM-DD-주제.md`로 남긴다(예: `docs/2026-08-01-email-verification.md`).
+
+## 커밋
+
+- 주석/문서 스타일은 `docs/COMMENT_STANDARDS.md`를 따른다.
+- 문서·설정만 바꾼 커밋은 메시지 끝에 `[skip ci]` — 안 붙이면 불필요한 프로덕션 배포가 돈다.
+
+---
+
+<!-- canon:begin sha=2327991ef5aa src=~/msa/AGENTS.md -->
+## 공통 캐논 (모든 AI 도구 공통)
+
+> **공통 캐논 (자동 주입 — 손으로 고치지 말 것).** 원본은 `~/msa/AGENTS.md`이고 이 블록은
+> `~/msa/scripts/sync-agents-canon.sh`가 넣는다. 이 저장소만 클론해 도는 도구(Codex, CI,
+> 워크스페이스를 저장소로만 연 IDE)는 `~/msa`를 볼 수 없으므로 규칙을 여기 함께 둔다.
+> **규칙을 바꿀 때는 원본을 고치고 sync 스크립트를 다시 돌릴 것.**
+
+### 현재 단계: 개발 단계 (운영 제약 유예)
+
+**posselect는 아직 실사용자 트래픽이 없는 개발 단계다.** 사용자가 명시적으로 확인한 사항: 무중단 배포·롤링 안전성·하위 호환 유지 같은 운영 제약을 기본값으로 깔지 말고, 다운타임이 나거나 기존 데이터를 리셋해야 해도 **가장 단순한 방법으로 바로 변경·적용**한다.
+
+- 아래 §3의 **expand-contract(2단계 제거) 규칙은 이 유예가 끝난 뒤 적용**한다. 개발 단계에서는 컬럼/테이블을 한 번에 갈아엎어도 된다. 단 **Flyway 마이그레이션으로만 바꾼다는 규칙 자체는 유예 대상이 아니다**(체크섬 사고 이력).
+- 이 유예는 한시적이다. **실 서비스 시작 시점은 사용자가 별도로 통지**하며, 통지 이후에는 이 절을 삭제하고 §3을 그대로 적용한다.
+
+## 3. 불변 개발 규칙 (위반 금지)
+
+실제 사고에서 도출된 규칙이다. 근거 이슈를 함께 표기한다.
+
+### DB / 스키마
+- **스키마 변경은 Flyway 마이그레이션으로만.** `ddl-auto`는 `validate` 유지, `update` 복귀 금지 (posselect #104).
+- 스키마 변경은 **expand-contract**: 컬럼/테이블 제거는 "새것 추가 → 코드 전환 → 다음 릴리스에서 제거" 2단계로.
+- `@Enumerated(STRING)` enum에 값 추가 시 기존 CHECK 제약은 자동으로 안 넓혀짐 — 마이그레이션에 `ALTER` 포함할 것.
+- 재고 음수 방지 CHECK, 멱등성 유니크 인덱스 등 **DB 레벨 제약은 애플리케이션 로직과 별개로 유지**한다 (posselect #211 V3).
+
+### 트랜잭션 / 정합성
+- **`@Transactional` 안에서 원격 HTTP 호출 금지**(보상 로직 없이). 로컬 롤백돼도 원격은 롤백 안 된다 (posselect #140, order.api 사례).
+- **모든 상태 변경(쓰기) API는 멱등해야 한다.** 재시도/중복 호출이 이중 차감·이중 결제가 되지 않게 멱등성 키(예: orderId) 기반 dedup을 넣는다 (posselect #211).
+- 클래스 레벨 `@Transactional(readOnly = true)`인 클래스에 쓰기 경로 추가 금지 — 전파 함정으로 UPDATE가 조용히 사라진다. 쓰기는 별도 클래스 또는 `REQUIRES_NEW` (posselect #211 롤백 사례).
+- **트랜잭션 전파·멱등성 변경은 단위 테스트로 검증이 성립하지 않는다.** 실제 DB 상태 변화 실측(같은 키로 2회 호출 → 1회만 반영)으로 검증하고, 실측 후 데이터 원복까지 한 세트로 수행 (posselect #211).
+
+### 보안 / 인가
+- **사용자 식별 키는 Keycloak sub(`X-User-Id`)만.** 이메일은 변경 가능하므로 소유자 키로 쓰지 않는다 (posselect #210).
+- 게이트웨이 주입 헤더(`X-User-*`)는 게이트웨이가 항상 **덮어써야** 한다 — 클라이언트가 보낸 값을 통과시키면 인증 우회가 된다 (msa #87).
+- **리소스 조회/변경 API에는 소유자 검사 필수.** 소유자 불일치는 403이 아니라 **404**로 응답(순번 ID에서 403은 유효 ID 범위를 노출) (posselect #214).
+- **새로 외부에 노출되는 리소스는 순번 PK(BIGSERIAL)를 URL/응답에 노출하지 말 것** — public_id(UUIDv7/ULID) 별도 부여 (posselect #214 재발 방지).
+- 로그인 전 호출되는 경로를 추가하면 gateway `PUBLIC_EXACT_PATHS`에도 **반드시 같이** 등록 (라우팅과 인증 화이트리스트가 다른 저장소에 있음).
+- 의존성 보안 패치(특히 Next.js/Spring)는 미루지 않는다 — store-front가 Next.js RCE(CVE-2025-66478)로 실제 침해 정황을 겪음 (msa #155).
+
+### K8s / 배포
+- stateful Deployment(PVC 사용)는 `strategy: Recreate`. 모든 PV는 `reclaimPolicy: Retain`. apply 전 `claimName`을 `kubectl get pvc`와 대조.
+- 새 도메인은 기존 와일드카드 TLS 시크릿을 참조만 할 것 — Ingress에 `cert-manager.io/cluster-issuer` 어노테이션 추가 금지(와일드카드 인증서를 덮어쓰는 사고 이력).
+- Ingress는 `leedohyun-com-ingress.yaml`/`posselect-com-ingress.yaml` 두 파일에 host만 추가. 서비스별 개별 Ingress 금지.
+- CI는 main push → Docker 이미지 → CD(self-hosted runner) 즉시 프로덕션 반영. **문서만 바꿀 땐 커밋 메시지에 `[skip ci]`.**
+- 여러 서비스에 걸친 변경은 **배포 순서**를 먼저 설계할 것(예: gateway → front → api 순서를 지켜야 게스트 결제가 안 끊기는 사례, posselect #210).
+- `@posselect/ui` 변경은 Storybook만 자동 배포됨 — 소비 저장소 5개(customer/store/product/admin.front + posselect-shell)를 각각 재빌드해야 화면에 반영 (posselect #197).
+- **`[skip ci]`는 커밋 제목뿐 아니라 본문에서도 인식된다.** 다른 커밋을 인용하려고 본문에 그 문자열을 적으면 배포가 조용히 건너뛰어진다 — 실제로 product.api 캐시 수정이 이 때문에 배포되지 않았다(gateway#204).
+- **`[skip ci]`로 건너뛴 배포를 되살릴 때**: `docker-image.yml`에 `workflow_dispatch`만 추가하면 부족하다. `deploy` 잡의 `if:`가 `github.event_name == 'push'`로 고정돼 있어 수동 실행은 빌드만 하고 배포는 skip된다. 조건도 `push || workflow_dispatch`로 함께 풀 것(현재 product.api만 적용됨).
+- **`pull_request` 워크플로는 PR head 브랜치의 파일로 돈다.** main의 워크플로를 고쳐도 이미 열려 있는 PR에는 반영되지 않고, `gh run rerun`은 원래 런의 워크플로 버전을 재사용한다. 수정 확인은 **브랜치를 리베이스한 뒤** 새 런으로 할 것.
+- **Dependabot PR에는 저장소 시크릿이 전달되지 않는다.** 시크릿을 쓰는 스텝(`docker/login-action`)은 `if: github.event_name == 'push'`로 막고, `secrets.X`를 문자열에 끼워 넣는 곳(이미지 태그)은 `${{ secrets.X || 'ci-local' }}` 폴백을 줄 것 — 안 그러면 모든 Dependabot PR이 상시 실패해 PR 게이트 신호가 죽는다(gateway#209).
+
+### CLI / 스크립팅
+- **SSH를 통한 원격 bash 명령 실행 시 따옴표 이스케이프 주의:** PowerShell에서 변수(`$BODY`)를 따옴표 안에 넣어 원격 `curl` 등을 호출하면 bash 쪽에서 JSON 포맷 에러(`400 Bad Request` 등)가 발생하기 쉽다. 복잡한 인용부호(JSON 등)가 포함된 스크립트는 **전체를 Base64로 인코딩한 뒤 원격에서 디코딩하여 `bash`로 실행**한다 (`echo $b64 | base64 -d | bash`).
+
+## 4. 작업 기록 및 관리 (GitHub & Memory) — 모든 도구 공통
+
+모든 에이전트는 더 이상 Redmine을 사용하지 않으며, 아래의 **Task Execution Workflow**에 따라 GitHub Projects 및 Issues를 단일 소스(SSOT)로 활용합니다.
+
+1. **명령 인식 (Command Recognition)**: 사용자의 의도와 작업 범위를 명확히 파악합니다.
+2. **깃허브 이슈 확인 및 즉시 선점 (Check & Claim)**: 작업을 시작하기 전에 반드시 GitHub Project #2와 관련 저장소 이슈를 조회하여 동일/겹치는 작업이 이미 `In Progress`인지 확인합니다. 조회·클레임은 `~/msa/scripts/claim.sh <repo> <issue>` 한 줄로 수행한다(다른 세션이 잡고 있으면 스크립트가 막는다). 겹치는 항목이 없으면 **코드를 건드리기 전에** 해당 이슈를 만들거나 열어 Status를 `In Progress`로 즉시 전환합니다. **이 서버는 Claude Code/Codex/Antigravity 등 여러 AI 도구를 여러 세션으로 동시에 띄워 작업하는 환경이므로, "조회만 하고 착수 시점에 클레임하지 않는" 흐름으로는 다른 세션과 같은 소스/같은 작업이 겹칠 수 있다.** 조회 시 대상 항목이 이미 `In Progress`(특히 최근 갱신)이면 같은 작업을 새로 시작하지 말고 사용자에게 확인한다.
+3. **작업 수행 (Task Execution)**: 파악된 작업을 순차적으로 수행하며 필요한 코드를 수정하거나 작성합니다.
+4. **커밋 전 서브에이전트 검수 (Pre-commit Subagent Review)**: 코드를 커밋하기 전에 해당 레포지토리의 서브에이전트(또는 특화된 페르소나 규칙)를 활용하여 코드를 검수합니다.
+5. **검수 후 주석 및 커밋 메시지 표준화 작성 (Standardized Comments & Commit Message)**: 검수가 완료된 코드에 대해 표준화된 주석을 달고, 일관된 양식의 커밋 메시지를 작성합니다.
+6. **배포 (Deployment)**: 작성된 코드를 알맞은 파이프라인이나 환경으로 배포합니다.
+7. **배포 후 정상 동작 확인 (Post-deployment Verification)**: 배포가 완료된 후 시스템이 정상적으로 동작하는지 반드시 테스트하고 검증합니다.
+
+**지속적인 업데이트 (Continuous Updates)**: 위 과정을 진행하면서 진행 상황은 아래 §4-1 인계 프로토콜(`progress.sh`)로 이슈에 남깁니다. (예전 이 문단은 "내부 `task.md` 를 동기화하라"고 지시했으나, 그런 파일은 이 머신에 존재한 적이 없다 — 선언만 있고 실체가 없는 규칙이었으므로 제거했다.) 특히, **작업이 완전히 끝났을 때는 커밋 메시지(`Closes #이슈번호`)를 활용하거나 `gh issue close` 명령어를 통해 반드시 깃허브 이슈를 '완료(Closed)' 처리해야 합니다.**
+
+**세션 격리 (Worktree, Check & Claim의 보완책)**: Check & Claim은 "같은 작업"의 중복 착수를 막는 조치이고, 이것과 별개로 여러 세션(도구 무관)이 **같은 저장소**(`~/git/<repo>`)의 공용 클론을 동시에 건드리면 서로 다른 작업이어도 파일/브랜치가 물리적으로 충돌할 수 있다. 저장소 작업을 시작할 때는 공용 클론을 직접 건드리기보다 별도 worktree를 기본으로 삼는다.
+- Claude Code는 `EnterWorktree` 도구로 `.claude/worktrees/<repo>/<name>` 아래 자동 생성/전환한다 — 기본 경로를 그대로 쓴다.
+- Codex/Antigravity 등 자체 worktree 기능이 없는 도구는 `git worktree add ../<repo>-<slug> -b <branch>`로 수동 생성하고, 작업 종료 후 `git worktree remove`로 정리한다.
+- **각 저장소 `.gitignore`에 `.claude/worktrees/`가 반드시 있어야 한다.** 없으면 `git add -A`/`git add .` 한 번에 worktree 디렉터리 전체가 gitlink(모드 160000)로 커밋되어 origin까지 올라갈 수 있다 — 2026-08-21 `customer.front`에서 실제로 발생·이미 push된 상태로 확인됨(별도 정리 필요, 이 문서 편집만으로는 해결되지 않음).
+
+## 4-1. 인계 프로토콜 — 다른 도구가 중간부터 이어받게 하기
+
+세 도구(Claude Code / Codex / Antigravity)가 **전부 같은 GitHub 계정으로 커밋**하므로 assignee·커밋 author 로는 누가 무엇을 잡고 있는지 구분되지 않는다. 진행 상태를 공유할 수 있는 매체는 **이슈 코멘트 하나뿐**이다. 도구별 메모리(예: Claude의 `~/.claude/projects/.../memory`)나 로컬 파일에 적으면 다른 도구는 영원히 못 읽는다.
+
+### 세션 시작 (도구 무관, 필수)
+
+```bash
+~/msa/scripts/session-start.sh      # 활성/스테일 클레임 + 저장소별 브랜치·미커밋·미푸시 상태
+```
+
+Claude Code 는 SessionStart 훅이 자동 실행한다(로컬 모드). **훅이 없는 도구는 세션의 첫 명령으로 직접 실행할 것.**
+
+- Project #2 조회 결과는 세션 간 공유 캐시(기본 5분, `~/.cache/msa-agent/`)를 쓴다. `gh project` 계열은 전부
+  GraphQL 이고 REST 와 한도가 분리돼 있는데 이 머신은 세션이 10~15개 동시에 뜬다 — 캐시가 없으면
+  세션 시작 조회만으로 GraphQL 5000/hr 이 마른다(2026-08-21 실측: 58/5000 까지 떨어짐).
+- **"조회 실패"와 "진행 중 작업 없음"은 다르다.** 한도가 소진되면 스크립트가 실패를 명시하고 낡은 캐시라도
+  보여준다. 실패 표시가 뜨면 착수 전에 대상 이슈를 직접 열어 CLAIM 코멘트를 확인할 것 — 조회 실패를
+  "아무도 안 잡았다"로 읽으면 그대로 중복 착수다.
+
+### 코멘트 규격 (기계 판독용 첫 줄 + 사람이 읽는 본문)
+
+| 종류 | 언제 | 명령 |
+|------|------|------|
+| `CLAIM` | 코드를 건드리기 **전** | `~/msa/scripts/claim.sh <repo> <issue>` |
+| `PROGRESS` | 의미 있는 단위마다 | `~/msa/scripts/progress.sh <repo> <issue> "한 일\|다음 단계\|검증 방법"` |
+| `HANDOFF` | 중단하거나 끝낼 때 | `~/msa/scripts/handoff.sh <repo> <issue> "남은 일/위험" [--done]` |
+| `TAKEOVER` | 남의 스테일 클레임을 인수할 때 | `~/msa/scripts/claim.sh <repo> <issue> --takeover` |
+
+- 코멘트 첫 줄은 ```CLAIM tool=... branch=... started=...``` 형태로 고정된다. 손으로 쓰지 말고 스크립트를 쓸 것 — 포맷이 깨지면 다른 세션의 클레임 판정이 틀린다.
+- **실행 도구 식별은 자동이다 — 세션마다 뭘 설정할 필요 없다.** 스크립트가 `/proc` 조상 체인에서 이 셸을 띄운 주체(ccd-cli / codex / antigravity IDE 서버 …)를 찾아 판별한다. 환경변수는 자식으로 새기 때문에(Claude 세션 안에서 codex 를 띄우면 `CLAUDECODE` 를 물려받는다) 조상 체인을 먼저 본다.
+  - 판별 결과가 `unknown` 으로 남는 도구가 생기면, 그때마다 `AGENT_TOOL` 을 치지 말고 **`~/msa/scripts/lib/agent-protocol.sh` 의 `_agent_ancestry_scan()` 에 패턴 한 줄을 추가**한다(한 번만 하면 그 도구의 모든 세션에 적용된다).
+  - 일회성으로 다르게 기록해야 할 때만 `AGENT_TOOL=... ` 또는 `--tool` 로 덮어쓴다.
+
+### 스테일 클레임 만료 (2시간)
+
+마지막 프로토콜 코멘트가 **2시간**(`MSA_CLAIM_STALE_SECONDS`) 넘게 없으면 그 클레임은 만료된 것으로 보고 `--takeover` 로 인수할 수 있다. 반납되지 않은 `In Progress` 가 영원히 남아 다른 세션을 막는 문제를 이 규칙으로 푼다(2026-08-21 실측: In Progress 11건 중 클레임 기록이 있는 것 0건, 일부는 며칠째 정지).
+
+### 인계 가능 = 원격에 push된 상태
+
+로컬 worktree 의 브랜치는 다른 도구·다른 세션 눈에 **보이지 않는다.** 작업을 중단할 때는 `wip:` 커밋이라도 push 한 뒤 `handoff.sh` 를 실행한다(미푸시 상태로 인계하려 하면 스크립트가 막는다). `--done` 없이 실행하면 Status 는 `In Progress` 로 남고 클레임만 반납되어, 다른 도구가 `--takeover` 로 바로 이어받는다.
+
+### 어디에 무엇을 쓰나
+
+| 내용 | 위치 |
+|------|------|
+| 진행 중 상태·다음 단계·인계 정보 | **이슈 코멘트**(위 프로토콜) |
+| 확정된 개발 규칙 | `~/msa/AGENTS.md` (이 문서) |
+| 사고 기록·ADR 등 장기 지식 | GitHub Wiki(gateway/order.api) |
+| 도구 자신의 작업 효율용 메모 | 각 도구의 메모리 — **다른 도구는 못 읽는다는 전제로만 사용** |
+
+
+## 4-2. 작업 라우팅 — 어느 도구가 무엇을 하나
+
+간단한 작업은 Antigravity 가 처리하고, 나머지는 Claude/Codex 가 맡는다. 표시는 **GitHub 라벨**로 한다.
+
+| 라벨 | 뜻 |
+|------|-----|
+| `agent: Antigravity` | 간단한 작업 — Antigravity 우선 |
+| `agent: Claude` / `agent: Codex` | 그 도구가 맡을 작업 |
+| (라벨 없음) | 아무 도구나 — **기본값이므로 대부분의 이슈는 라벨을 달 필요가 없다** |
+
+표시: `~/msa/scripts/mark-agent.sh <repo> <issue> antigravity|claude|codex|clear` 또는 GitHub UI 에서 라벨 클릭.
+
+### 다음 작업 고르기
+
+```bash
+~/msa/scripts/next-task.sh            # 우선순위대로 후보 나열 (+ 클레임 명령까지 출력)
+~/msa/scripts/next-task.sh --claim    # 1순위를 바로 클레임
+```
+
+우선순위: **① 내 도구 라벨 → ② 라벨 없음 → ③ 다른 도구 라벨**.
+
+- **③은 ①·②가 모두 비었을 때만 나온다(즉시 폴백).** 사용자 결정 사항이다: 안티그래비티 태그가 붙어 있어도
+  남은 게 그것뿐이면 다른 도구가 진행한다. **라벨은 우선권이지 소유권이 아니다** — 태그 때문에 도구가 노는 일은 없게 한다.
+- 폴백으로 진행해도 흔적은 남는다. `claim.sh` 가 `tool=` 을 기록하므로 "이 작업을 누가 왜 가져갔는지"가 이슈에 그대로 보인다.
+- 동시 착수를 막는 건 라벨이 아니라 **클레임 프로토콜**(§4-1)이다. 라벨만 보고 착수하지 말 것.
+- 조회는 전부 REST(`gh issue list`)다. `gh project` 는 GraphQL 이라 세션이 10~15개 뜨는 이 환경에서 먼저 마른다 —
+  라우팅에 Project 커스텀 필드를 쓰지 않고 라벨을 쓰는 이유다.
+
+## 5-1. 자동 점검 장치 — 도구 무관 (2026-08-21 배선, 같은 날 도구 무관화)
+
+규칙을 문서로만 선언하지 않고 실제로 강제하는 장치다. **어떤 AI 도구도 이 장치들을 우회하지 말 것** —
+우회하면 이 문서의 규칙이 다시 선언으로만 남는다.
+
+- **`<저장소>/scripts/verify.sh`** — push 전 검증의 **단일 진입점**. 스택을 자동 판별해
+  `./gradlew test` 또는 `npm run typecheck/lint/test` 를 돌리고, `scripts/verify.d/*.sh` 추가 검사를 실행한다.
+  문서·도구 설정만 바뀐 push 는 스스로 건너뛴다. 우회는 `MSA_SKIP_VERIFY=1`, 우회했다면 그 사실을 보고/이슈에 남길 것.
+  - 호출자 3곳이 **같은 스크립트**를 부른다: `.githooks/pre-push`(도구 무관) / `.claude/hooks/pre-push-verify.sh`(Claude) / CI.
+  - `.githooks/pre-push` 는 클론마다 `~/msa/scripts/bootstrap-hooks.sh` 를 1회 돌려 `core.hooksPath` 를 걸어야 활성화된다
+    (이 설정은 커밋되지 않는 로컬 설정이다). **새 클론·새 머신에서 제일 먼저 할 일.**
+  - 2026-08-21 이전에는 검증이 `.claude/hooks/` 아래에만 있어 Claude 이외의 도구가 push 하면 아무 검증도 걸리지 않았다.
+- **`<저장소>/AGENTS.md` 의 `<!-- canon:begin -->` 블록** — 이 문서의 공통 규칙이 각 저장소에 주입된 사본이다.
+  `~/msa` 는 git 저장소가 아니라 저장소만 클론해 도는 도구(Codex, CI, IDE)는 원본을 읽을 수 없기 때문이다.
+  **손으로 고치지 말 것.** 규칙 변경은 이 문서를 고치고 `~/msa/scripts/sync-agents-canon.sh` 를 다시 돌린다
+  (`--check` 로 어긋난 저장소를 찾는다). `CLAUDE.md`/`GEMINI.md` 는 `AGENTS.md` 심링크다.
+- **`<저장소>/.claude/agents/*.md`** — 저장소별 가드(게이트웨이 화이트리스트, Flyway, 트랜잭션/멱등성,
+  캐시 무효화, 디자인 토큰, 셸 계약). Claude Code는 자동 위임하고, **다른 도구는 해당 파일을 읽어 같은 점검을 수행할 것.**
+- **결정적 검사 스크립트** — `check-token-mirror.sh`(posselect-ui), `check-i18n-keys.sh`/`check-mermaid.sh`
+  (architecture), `~/msa/scripts/check-architecture-drift.sh`. LLM 없이 동작하므로 어떤 도구에서든 그냥 실행하면 된다.
+- **CI** — 각 저장소 `pr-check.yml`(PR 단계 게이트), `claude-review.yml`(자동 리뷰, `ANTHROPIC_API_KEY` 필요).
+  단 `pr-check.yml` 은 `pull_request` 에서만 돈다 — **main 직push 는 CI 게이트가 없고 곧 배포다.**
+  그래서 push 전 검증은 `.githooks/pre-push` 가 유일한 방어선이다.
+
+작업 기록은 `msa-work-log` 스킬(Claude Code) 또는 `~/.claude/skills/msa-work-log/SKILL.md`(다른 도구는 이 파일을
+읽고 같은 절차 수행)를 따른다. **Project에 저장소 미연결 Draft issue를 만들지 말 것** — 2026-08-17 이관 때
+중복 카드 210여 건이 생긴 원인이다. 항상 실제 저장소 Issue를 만들어 Project #2에 연결한다.
+<!-- canon:end -->
