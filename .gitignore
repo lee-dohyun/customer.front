@@ -36,6 +36,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# claude worktrees (prevent gitlinks leaking into history)
+.claude/worktrees/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
