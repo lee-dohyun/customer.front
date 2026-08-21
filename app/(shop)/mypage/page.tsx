@@ -30,6 +30,21 @@ export default function MyPage() {
   const [error, setError] = useState("");
   const [orders, setOrders] = useState<OrderSummary[]>([]);
   const [wishlists, setWishlists] = useState<WishlistItem[]>([]);
+  const [wishlistPage, setWishlistPage] = useState(0);
+  const [hasMoreWishlists, setHasMoreWishlists] = useState(false);
+
+  const fetchWishlists = (page: number, append = false) => {
+    fetch(`/api/wishlists?page=${page}&size=10`, { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : { content: [], last: true }))
+      .then((data) => {
+        setWishlists((prev) => append ? [...prev, ...(data.content || [])] : (data.content || []));
+        setHasMoreWishlists(!data.last);
+      })
+      .catch(() => {
+        if (!append) setWishlists([]);
+        setHasMoreWishlists(false);
+      });
+  };
 
   useEffect(() => {
     fetch("/api/auth/me", { credentials: "include" })
@@ -47,11 +62,14 @@ export default function MyPage() {
       .then(setOrders)
       .catch(() => setOrders([]));
 
-    fetch("/api/wishlists", { credentials: "include" })
-      .then((res) => (res.ok ? res.json() : []))
-      .then(setWishlists)
-      .catch(() => setWishlists([]));
+    fetchWishlists(0);
   }, []);
+
+  const loadMoreWishlists = () => {
+    const nextPage = wishlistPage + 1;
+    setWishlistPage(nextPage);
+    fetchWishlists(nextPage, true);
+  };
 
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
@@ -162,7 +180,7 @@ export default function MyPage() {
                     borderBottom: "1px solid var(--color-divider)",
                   }}
                 >
-                  <a href={`http://localhost:3002/products/${item.productId}`} style={{ textDecoration: "none", color: "inherit", flex: 1 }}>
+                  <a href={`${process.env.NEXT_PUBLIC_PRODUCT_FRONT_URL || "http://localhost:3002"}/products/${item.productId}`} style={{ textDecoration: "none", color: "inherit", flex: 1 }}>
                     <span style={{ fontWeight: 500 }}>{item.productName}</span>
                   </a>
                   <button 
@@ -175,6 +193,14 @@ export default function MyPage() {
                 </li>
               ))}
             </ul>
+          )}
+          {hasMoreWishlists && (
+            <div style={{ textAlign: "center", marginTop: 16 }}>
+              <button className="btn btn-secondary blueprint" onClick={loadMoreWishlists}>
+                <BlueprintCorners />
+                더보기
+              </button>
+            </div>
           )}
         </>
       )}
