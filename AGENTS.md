@@ -65,7 +65,22 @@ auth-api/order-api로 프록시한다. 자체 route handler는 `app/api/agreemen
 배경색으로 쓰면 에러 없이 배경이 투명해진다(hero 배너 인시던트). 새 CSS 변수를 쓰기 전에 토큰
 정의를 먼저 확인할 것.
 
-### 6. CI는 타입/린트를 안 본다. main push = 즉시 프로덕션
+### 6. 프로덕션 이미지는 최상위 파일을 골라서만 복사한다
+
+`Dockerfile`의 production 스테이지는 `.next`, `node_modules`, `package.json`, `public`만 COPY하고
+**`next.config.ts`는 복사하지 않는다.** 그리고 `CMD npm start`(= `next start`)는 **런타임에
+next.config를 읽는다.**
+
+지금은 `transpilePackages`(빌드 타임 전용)만 있어서 문제가 없지만, `images`/`rewrites`/`redirects`/
+`headers` 같은 런타임 설정을 추가하면 **빌드는 통과하는데 프로덕션에서만 조용히 무시된다.**
+설정을 추가할 때 Dockerfile도 같이 고칠 것(next.config.ts 누락으로 상품 이미지가 안 뜬 2026-08-20
+`store.front` 사례 — 그쪽은 이후 `output: "standalone"` + 명시적 COPY로 해결됐다).
+
+또한 이 Dockerfile은 **`dev` 스테이지가 `production` 뒤에 온다.** 그래서 빌드에 `--target`을
+지정하지 않으면 마지막 스테이지인 `dev`가 잡힌다. `docker-image.yml`에 `target: production`이
+있는 것이 그 때문이니 지우지 말 것.
+
+### 7. CI는 타입/린트를 안 본다. main push = 즉시 프로덕션
 
 `.github/workflows/docker-image.yml`은 Docker 빌드/푸시 성공만을 게이트로 삼고 `lint`/`typecheck`를
 돌리지 않는다(Trivy도 `exit-code: "0"` 리포트 전용). 이어지는 `deploy` 잡이 self-hosted 러너에서
