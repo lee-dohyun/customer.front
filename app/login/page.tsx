@@ -72,8 +72,11 @@ function LoginForm() {
 
   const handleSocialLogin = (provider: string) => {
     const keycloakUrl = process.env.NEXT_PUBLIC_KEYCLOAK_URL || "https://keycloak.posselect.com";
+    // CSRF 방지용 state — 콜백(auth.api)이 같은 오리진 쿠키로 받은 값과 대조한다.
+    const state = crypto.randomUUID();
+    document.cookie = `oauth_state=${state}; path=/; max-age=300; SameSite=Lax; Secure`;
     const redirectUri = encodeURIComponent(window.location.origin + "/api/auth/callback");
-    const authUrl = `${keycloakUrl}/realms/customer/protocol/openid-connect/auth?client_id=auth-api-backend&response_type=code&kc_idp_hint=${provider}&redirect_uri=${redirectUri}`;
+    const authUrl = `${keycloakUrl}/realms/customer/protocol/openid-connect/auth?client_id=auth-api-backend&response_type=code&kc_idp_hint=${provider}&redirect_uri=${redirectUri}&state=${state}`;
     window.location.href = authUrl;
   };
 
