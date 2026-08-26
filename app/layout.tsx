@@ -14,7 +14,7 @@ export const metadata: Metadata = {
     siteName: "PosSelect",
     images: [
       {
-        url: "https://image.posselect.com/cdn/logos/posselect-logo-hires-no-r.webp",
+        url: "https://image.posselect.com/cdn/logos/posselect-og-share.png",
         width: 1200,
         height: 630,
         alt: "PosSelect 대표 이미지",
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "PosSelect",
     description: "검증된 상품만 엄선하는 PosSelect",
-    images: ["https://image.posselect.com/cdn/logos/posselect-logo-hires-no-r.webp"],
+    images: ["https://image.posselect.com/cdn/logos/posselect-og-share.png"],
   },
 };
 
