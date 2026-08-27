@@ -168,40 +168,30 @@ function LoginForm() {
         </div>
 
         {/*
-          TODO(간편 로그인 — 카카오/네이버/구글): 현재 로그인은 이메일/비밀번호를 Keycloak
-          Direct Access Grant(ROPC)로 바로 검증하는 방식인데, 소셜 로그인은 원리상 그 방식이
-          안 된다(비밀번호 자체가 없음) — Authorization Code + Keycloak Identity Provider
-          브로커링으로 완전히 다른 플로우가 필요하다:
-            1. Keycloak "customer" realm에 Identity Provider 추가
-               - Google: Keycloak이 기본 제공하는 Google IdP 템플릿 사용 가능
-               - Kakao/Naver: 기본 템플릿 없음 — Kakao/Naver 개발자 콘솔에서 OAuth 앱을
-                 새로 등록하고, Keycloak엔 "OpenID Connect v1.0" 커스텀 IdP로 각 사의
-                 authorization/token/userinfo endpoint를 직접 입력해서 등록해야 함
-            2. auth-api-backend 클라이언트(현재 Direct Access Grant 전용)에 표준 인가 코드
-               흐름(redirect-based)도 열어야 함 — 지금 게이트웨이/customer.front는 이 흐름을
-               한 번도 처리한 적이 없어서, 콜백 라우팅(gateway PUBLIC_EXACT_PATHS에
-               /api/auth/callback류 추가), 상태 저장(state/PKCE) 등을 새로 설계해야 함
-            3. 이 버튼들이 실제로 Keycloak의
-               /realms/customer/protocol/openid-connect/auth?kc_idp_hint=kakao 같은 URL로
-               리다이렉트하도록 onClick 구현
-          작업량이 커서 별도 이슈로 분리해서 진행하는 걸 권장 — 지금은 버튼만 노출, disabled.
+          카카오 로그인은 잠시 비활성화(customer.front#39). Keycloak IdP 등록까지는
+          끝났지만, 카카오 콘솔에서 이메일(account_email) 동의항목이 "권한 없음"이라
+          email이 null로 넘어오고, Keycloak이 그 경우 first broker login 플로우를
+          강제 재실행하면서(KC-SERVICES0020) 잘못된 경로로 빠져 로그인이 완료되지 않는다.
+          비즈 앱 전환(사업자등록 없이 본인인증만으로 가능) 후 이메일 동의항목을 켜면
+          재개 가능 — 상세 원인/재개 절차는 이슈 참고.
         */}
         <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
           <button
             type="button"
             aria-label="카카오 로그인"
-            onClick={() => handleSocialLogin("kakao")}
-            style={{ width: 48, height: 48, border: "1px solid var(--color-divider)", borderRadius: "50%", background: "#FEE500", color: "#1d1f20", cursor: "pointer" }}
+            disabled
+            style={{ width: 48, height: 48, border: "1px solid var(--color-divider)", borderRadius: "50%", background: "#FEE500", color: "#1d1f20", cursor: "not-allowed" }}
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style={{ margin: "0 auto" }}>
               <path d="M12 3C6.5 3 2 6.6 2 11c0 2.8 1.9 5.3 4.7 6.7-.2.7-1 3.5-1 3.7 0 0 2.6-1.7 3.6-2.4.9.1 1.8.2 2.7.2 5.5 0 10-3.6 10-8s-4.5-8-10-8z"></path>
             </svg>
           </button>
+          {/* 네이버 로그인: 아직 네이버 개발자 콘솔에 앱 등록 전(customer.front#2) — Keycloak IdP도 미등록 */}
           <button
             type="button"
             aria-label="네이버 로그인"
-            onClick={() => handleSocialLogin("naver")}
-            style={{ width: 48, height: 48, border: "1px solid var(--color-divider)", borderRadius: "50%", background: "#03C75A", color: "#ffffff", cursor: "pointer", fontWeight: 800, fontSize: 15 }}
+            disabled
+            style={{ width: 48, height: 48, border: "1px solid var(--color-divider)", borderRadius: "50%", background: "#03C75A", color: "#ffffff", cursor: "not-allowed", fontWeight: 800, fontSize: 15 }}
           >
             N
           </button>
