@@ -70,6 +70,16 @@ function LoginForm() {
     }
   };
 
+  const handleSocialLogin = (provider: string) => {
+    const keycloakUrl = process.env.NEXT_PUBLIC_KEYCLOAK_URL || "https://keycloak.posselect.com";
+    // CSRF 방지용 state — 콜백(auth.api)이 같은 오리진 쿠키로 받은 값과 대조한다.
+    const state = crypto.randomUUID();
+    document.cookie = `oauth_state=${state}; path=/; max-age=300; SameSite=Lax; Secure`;
+    const redirectUri = encodeURIComponent(window.location.origin + "/api/auth/callback");
+    const authUrl = `${keycloakUrl}/realms/customer/protocol/openid-connect/auth?client_id=auth-api-backend&response_type=code&kc_idp_hint=${provider}&redirect_uri=${redirectUri}&state=${state}`;
+    window.location.href = authUrl;
+  };
+
   return (
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--color-bg)" }}>
       <div style={{ maxWidth: 420, width: "100%", padding: "36px 32px", border: "1px solid var(--color-divider)" }}>
@@ -180,8 +190,8 @@ function LoginForm() {
           <button
             type="button"
             aria-label="카카오 로그인"
-            disabled
-            style={{ width: 48, height: 48, border: "1px solid var(--color-divider)", borderRadius: "50%", background: "#FEE500", color: "#1d1f20", cursor: "not-allowed" }}
+            onClick={() => handleSocialLogin("kakao")}
+            style={{ width: 48, height: 48, border: "1px solid var(--color-divider)", borderRadius: "50%", background: "#FEE500", color: "#1d1f20", cursor: "pointer" }}
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style={{ margin: "0 auto" }}>
               <path d="M12 3C6.5 3 2 6.6 2 11c0 2.8 1.9 5.3 4.7 6.7-.2.7-1 3.5-1 3.7 0 0 2.6-1.7 3.6-2.4.9.1 1.8.2 2.7.2 5.5 0 10-3.6 10-8s-4.5-8-10-8z"></path>
@@ -190,16 +200,16 @@ function LoginForm() {
           <button
             type="button"
             aria-label="네이버 로그인"
-            disabled
-            style={{ width: 48, height: 48, border: "1px solid var(--color-divider)", borderRadius: "50%", background: "#03C75A", color: "#ffffff", cursor: "not-allowed", fontWeight: 800, fontSize: 15 }}
+            onClick={() => handleSocialLogin("naver")}
+            style={{ width: 48, height: 48, border: "1px solid var(--color-divider)", borderRadius: "50%", background: "#03C75A", color: "#ffffff", cursor: "pointer", fontWeight: 800, fontSize: 15 }}
           >
             N
           </button>
           <button
             type="button"
             aria-label="구글 로그인"
-            disabled
-            style={{ width: 48, height: 48, border: "1px solid var(--color-divider)", borderRadius: "50%", background: "#ffffff", color: "var(--color-text)", cursor: "not-allowed", fontWeight: 700, fontSize: 15 }}
+            onClick={() => handleSocialLogin("google")}
+            style={{ width: 48, height: 48, border: "1px solid var(--color-divider)", borderRadius: "50%", background: "#ffffff", color: "var(--color-text)", cursor: "pointer", fontWeight: 700, fontSize: 15 }}
           >
             G
           </button>
