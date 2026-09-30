@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, Suspense } from "react";
+import { useMemo, useState, useSyncExternalStore, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Dialog, Logo } from "@posselect/ui";
 import { toE164 } from "@/lib/phone";
@@ -100,6 +100,23 @@ const DEFAULT_REGION = "KR";
 /** 앱에 로케일 라우팅(#103)이 아직 없어서, 그전까지 국가명 표기에 쓸 기본 언어. */
 const DEFAULT_DISPLAY_LANGUAGE = "ko";
 
+const subscribeNoop = () => () => {};
+
+function readPreferredLanguage(): string | null {
+  return navigator.languages?.[0] ?? navigator.language ?? null;
+}
+
+// 브라우저가 이상한 언어 태그를 주거나 지원 국가가 아니면 null — 호출부가 기본 국가를 그대로 쓴다.
+function detectRegion(preferred: string | null): string | null {
+  if (!preferred) return null;
+  try {
+    const detected = new Intl.Locale(preferred).maximize().region;
+    return detected && COUNTRY_DIAL_CODES.some(([code]) => code === detected) ? detected : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * 에러 응답에서 사람이 읽을 문장 하나를 꺼낸다.
  *
@@ -139,8 +156,8 @@ function SignupForm() {
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [region, setRegion] = useState(DEFAULT_REGION);
-  const [displayLanguage, setDisplayLanguage] = useState<string>(DEFAULT_DISPLAY_LANGUAGE);
+  // 사용자가 국가를 직접 고르기 전까지는 브라우저 언어로 감지한 값(없으면 기본값)을 쓴다.
+  const [regionChoice, setRegionChoice] = useState<string | null>(null);
   const [otpSent, setOtpSent] = useState(false);
   const [otpCode, setOtpCode] = useState("");
   const [otpVerified, setOtpVerified] = useState(false);
@@ -177,24 +194,13 @@ function SignupForm() {
   const searchParams = useSearchParams();
   const redirectUri = searchParams.get("redirect_uri") || "/mypage";
 
-  // 브라우저 언어/지역으로 초깃값을 다듬는다. 서버 렌더와 첫 클라이언트 렌더는 둘 다 위의
-  // 상수로 그려야 하이드레이션이 어긋나지 않으므로, navigator는 마운트 후에만 본다.
-  // #103이 붙으면 이 값들은 라우트 로케일에서 오게 되고 이 effect는 사라진다.
-  useEffect(() => {
-    const preferred = navigator.languages?.[0] ?? navigator.language;
-    if (!preferred) {
-      return;
-    }
-    setDisplayLanguage(preferred);
-    try {
-      const detected = new Intl.Locale(preferred).maximize().region;
-      if (detected && COUNTRY_DIAL_CODES.some(([code]) => code === detected)) {
-        setRegion(detected);
-      }
-    } catch {
-      // 브라우저가 이상한 언어 태그를 주는 경우 — 기본 국가를 그대로 둔다
-    }
-  }, []);
+  // 브라우저 언어/지역으로 초깃값을 다듬는다. 서버 렌더와 하이드레이션은 getServerSnapshot(null)로
+  // 위의 상수를 그리고, 하이드레이션 뒤에 브라우저 값으로 다시 그린다 — 예전엔 마운트 후 effect 에서
+  // setState 했다(react-hooks/set-state-in-effect, gateway#286).
+  // #103이 붙으면 이 값들은 라우트 로케일에서 오게 되고 이 훅은 사라진다.
+  const preferredLanguage = useSyncExternalStore(subscribeNoop, readPreferredLanguage, () => null);
+  const displayLanguage = preferredLanguage ?? DEFAULT_DISPLAY_LANGUAGE;
+  const region = regionChoice ?? detectRegion(preferredLanguage) ?? DEFAULT_REGION;
 
   const countryOptions = useMemo(() => {
     let regionNames: Intl.DisplayNames | null = null;
@@ -227,7 +233,7 @@ function SignupForm() {
   };
 
   const handleRegionChange = (value: string) => {
-    setRegion(value);
+    setRegionChoice(value);
     resetVerification();
   };
 
