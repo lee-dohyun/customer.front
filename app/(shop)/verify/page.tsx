@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { BlueprintCorners } from "@posselect/ui";
 
@@ -10,30 +10,32 @@ function VerifyContent() {
   const searchParams = useSearchParams();
   const email = searchParams.get("email") || "";
   const token = searchParams.get("token") || "";
-  const [status, setStatus] = useState<Status>("verifying");
+  // 링크에 email/token 이 없으면 요청 없이 곧바로 실패다. 이걸 effect 안에서 setState 로 만들지 않고
+  // 파생 값으로 둔다(react-hooks/set-state-in-effect, gateway#286).
+  const missingParams = !email || !token;
+  const [result, setResult] = useState<Status>("verifying");
+  const status: Status = missingParams ? "error" : result;
   const [resending, setResending] = useState(false);
   const [resent, setResent] = useState(false);
 
-  const verify = useCallback(async () => {
-    if (!email || !token) {
-      setStatus("error");
-      return;
-    }
-    try {
-      const res = await fetch("/api/auth/verify-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, token }),
-      });
-      setStatus(res.ok ? "success" : "error");
-    } catch {
-      setStatus("error");
-    }
-  }, [email, token]);
-
   useEffect(() => {
-    verify();
-  }, [verify]);
+    if (missingParams) return;
+    let stale = false;
+    fetch("/api/auth/verify-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, token }),
+    })
+      .then((res) => {
+        if (!stale) setResult(res.ok ? "success" : "error");
+      })
+      .catch(() => {
+        if (!stale) setResult("error");
+      });
+    return () => {
+      stale = true;
+    };
+  }, [email, token, missingParams]);
 
   const handleResend = async () => {
     if (!email) return;
