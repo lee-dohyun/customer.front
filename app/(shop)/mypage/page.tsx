@@ -65,6 +65,14 @@ export default function MyPage() {
     fetchWishlists(0);
   }, []);
 
+  // 공통 헤더의 찜 아이콘은 /mypage#wishlist 로 들어온다(product.api#10). 찜 목록은 /api/auth/me
+  // 응답 뒤에야 그려지므로 브라우저의 기본 해시 스크롤 시점에는 대상이 없다 — 그려진 뒤 직접 옮긴다.
+  useEffect(() => {
+    if (me && window.location.hash === "#wishlist") {
+      document.getElementById("wishlist")?.scrollIntoView();
+    }
+  }, [me]);
+
   const loadMoreWishlists = () => {
     const nextPage = wishlistPage + 1;
     setWishlistPage(nextPage);
@@ -164,7 +172,7 @@ export default function MyPage() {
             </ul>
           )}
 
-          <h3 style={{ marginTop: 32 }}>내 찜 목록</h3>
+          <h3 id="wishlist" style={{ marginTop: 32 }}>내 찜 목록</h3>
           {wishlists.length === 0 ? (
             <p className="text-muted">찜한 상품이 없습니다.</p>
           ) : (
