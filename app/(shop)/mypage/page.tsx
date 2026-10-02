@@ -35,9 +35,10 @@ export default function MyPage() {
   const [wishlists, setWishlists] = useState<WishlistItem[]>([]);
   const [wishlistPage, setWishlistPage] = useState(0);
   const [hasMoreWishlists, setHasMoreWishlists] = useState(false);
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
 
   const fetchWishlists = (page: number, append = false) => {
-    fetch(`/api/wishlists?page=${page}&size=10`, { credentials: "include" })
+    return fetch(`/api/wishlists?page=${page}&size=10`, { credentials: "include" })
       .then((res) => (res.ok ? res.json() : { content: [], last: true }))
       .then((data) => {
         setWishlists((prev) => append ? [...prev, ...(data.content || [])] : (data.content || []));
@@ -50,7 +51,7 @@ export default function MyPage() {
   };
 
   useEffect(() => {
-    fetch("/api/auth/me", { credentials: "include" })
+    const meLoaded = fetch("/api/auth/me", { credentials: "include" })
       .then((res) => {
         if (!res.ok) {
           throw new Error("unauthorized");
@@ -61,17 +62,20 @@ export default function MyPage() {
       .catch(() => setError("사용자 정보를 불러오지 못했습니다."));
 
     // 등급을 못 받아와도(로컬 회원 행 없음, auth.api 미배포 등) 마이페이지의 나머지는 그대로 보여 준다.
-    fetch("/api/auth/me/grade", { credentials: "include" })
+    const gradeLoaded = fetch("/api/auth/me/grade", { credentials: "include" })
       .then((res) => (res.ok ? res.json() : null))
       .then(setGrade)
       .catch(() => setGrade(null));
 
-    fetch("/api/orders/mine", { credentials: "include" })
+    const ordersLoaded = fetch("/api/orders/mine", { credentials: "include" })
       .then((res) => (res.ok ? res.json() : []))
       .then(setOrders)
       .catch(() => setOrders([]));
 
-    fetchWishlists(0);
+    const wishlistsLoaded = fetchWishlists(0);
+
+    // 네 요청은 전부 실패를 스스로 삼키므로(catch) 이 묶음은 거부되지 않는다.
+    Promise.all([meLoaded, gradeLoaded, ordersLoaded, wishlistsLoaded]).then(() => setInitialLoadDone(true));
 
     // 소셜 로그인으로 들어와 약관 동의·휴대폰 인증을 안 마친 회원은 가입 마무리로 보낸다(auth.api#42).
     // 로그인 콜백이 먼저 그쪽으로 보내지만, 마치지 않고 창을 닫았다가 세션이 살아 있는 채로 돌아오면
@@ -88,11 +92,14 @@ export default function MyPage() {
 
   // 공통 헤더의 찜 아이콘은 /mypage#wishlist 로 들어온다(product.api#10). 찜 목록은 /api/auth/me
   // 응답 뒤에야 그려지므로 브라우저의 기본 해시 스크롤 시점에는 대상이 없다 — 그려진 뒤 직접 옮긴다.
+  // 내 정보만 온 시점에 옮기면, 뒤늦게 오는 등급 카드·주문내역이 찜 목록 위에 그려지면서 목록이
+  // 다시 아래로 밀린다(운영 실측: 화면 맨 위가 아니라 458px 아래에 멈춤). 처음 불러오기가 다 끝난 뒤
+  // 한 번만 옮긴다 — 「더보기」·삭제로 목록이 바뀔 때 다시 끌어올리지 않기 위해서다.
   useEffect(() => {
-    if (me && window.location.hash === "#wishlist") {
+    if (initialLoadDone && window.location.hash === "#wishlist") {
       document.getElementById("wishlist")?.scrollIntoView();
     }
-  }, [me]);
+  }, [initialLoadDone]);
 
   const loadMoreWishlists = () => {
     const nextPage = wishlistPage + 1;

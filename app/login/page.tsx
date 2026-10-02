@@ -3,6 +3,7 @@
 import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Logo } from "@posselect/ui";
+import { withHash } from "@/lib/navigation";
 
 const REMEMBER_ME_KEY = "posselect_remember_me";
 
@@ -39,7 +40,7 @@ function LoginForm() {
           localStorage.removeItem(REMEMBER_ME_KEY);
         }
         const redirectUri = searchParams.get("redirect_uri") || "/mypage";
-        window.location.href = redirectUri;
+        window.location.href = withHash(redirectUri, window.location.hash);
       } else if (res.status === 403) {
         const body = await res.json().catch(() => null);
         if (body?.error === "EMAIL_NOT_VERIFIED") {
