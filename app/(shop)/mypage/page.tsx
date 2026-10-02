@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { BlueprintCorners, Tag } from "@posselect/ui";
 import { benefitText, nextGradeText, type MyGrade } from "@/lib/grade";
+import { replaceLocation } from "@/lib/navigation";
 
 type Me = { email: string; role: string };
 
@@ -71,6 +72,18 @@ export default function MyPage() {
       .catch(() => setOrders([]));
 
     fetchWishlists(0);
+
+    // 소셜 로그인으로 들어와 약관 동의·휴대폰 인증을 안 마친 회원은 가입 마무리로 보낸다(auth.api#42).
+    // 로그인 콜백이 먼저 그쪽으로 보내지만, 마치지 않고 창을 닫았다가 세션이 살아 있는 채로 돌아오면
+    // 콜백을 안 거친다. 확인에 실패하면 막지 않는다 — 이 확인 때문에 마이페이지가 죽어선 안 된다.
+    fetch("/api/auth/onboarding", { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { required?: boolean } | null) => {
+        if (data?.required === true) {
+          replaceLocation("/onboarding");
+        }
+      })
+      .catch(() => {});
   }, []);
 
   // 공통 헤더의 찜 아이콘은 /mypage#wishlist 로 들어온다(product.api#10). 찜 목록은 /api/auth/me
