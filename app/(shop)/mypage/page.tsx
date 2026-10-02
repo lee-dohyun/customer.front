@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { BlueprintCorners, Tag } from "@posselect/ui";
+import { benefitText, nextGradeText, type MyGrade } from "@/lib/grade";
 
 type Me = { email: string; role: string };
 
@@ -28,6 +29,7 @@ type WishlistItem = { id: number; productId: number; productName: string };
 export default function MyPage() {
   const [me, setMe] = useState<Me | null>(null);
   const [error, setError] = useState("");
+  const [grade, setGrade] = useState<MyGrade | null>(null);
   const [orders, setOrders] = useState<OrderSummary[]>([]);
   const [wishlists, setWishlists] = useState<WishlistItem[]>([]);
   const [wishlistPage, setWishlistPage] = useState(0);
@@ -56,6 +58,12 @@ export default function MyPage() {
       })
       .then((data: Me) => setMe(data))
       .catch(() => setError("사용자 정보를 불러오지 못했습니다."));
+
+    // 등급을 못 받아와도(로컬 회원 행 없음, auth.api 미배포 등) 마이페이지의 나머지는 그대로 보여 준다.
+    fetch("/api/auth/me/grade", { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then(setGrade)
+      .catch(() => setGrade(null));
 
     fetch("/api/orders/mine", { credentials: "include" })
       .then((res) => (res.ok ? res.json() : []))
@@ -140,6 +148,19 @@ export default function MyPage() {
               </button>
             </div>
           </div>
+
+          {grade && (
+            <div className="card blueprint elev-sm" style={{ marginBottom: 24 }}>
+              <BlueprintCorners />
+              <p style={{ margin: 0 }}>
+                회원 등급: <Tag variant="neutral">{grade.name}</Tag>
+              </p>
+              <p style={{ margin: 0 }}>혜택: {benefitText(grade)}</p>
+              <p className="text-muted" style={{ margin: 0 }}>
+                {nextGradeText(grade)}
+              </p>
+            </div>
+          )}
 
           <h3 style={{ marginTop: 32 }}>주문내역</h3>
           {orders.length === 0 ? (
