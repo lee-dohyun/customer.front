@@ -10,3 +10,15 @@
 export function replaceLocation(url: string): void {
   window.location.replace(url);
 }
+
+/**
+ * 로그인 뒤 돌아갈 주소에, 로그인 화면이 물려받은 해시(`#wishlist` 등)를 다시 붙인다.
+ *
+ * <p>해시는 서버로 전송되지 않는다. 그래서 게이트웨이가 만든 `redirect_uri` 에는 해시가 빠져 있고,
+ * 브라우저만 리다이렉트를 건너 해시를 들고 온다(`/login?redirect_uri=...%2Fmypage#wishlist`).
+ * 안 붙이면 비로그인으로 「찜」 아이콘을 누른 사람은 로그인 후 마이페이지 맨 위에 떨어진다(product.api#10).
+ */
+export function withHash(url: string, hash: string): string {
+  if (hash.length <= 1 || url.includes("#")) return url;
+  return url + hash;
+}
