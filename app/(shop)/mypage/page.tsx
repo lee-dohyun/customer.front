@@ -23,12 +23,25 @@ const orderStatusVariant: Record<string, "warning" | "success" | "neutral"> = {
   PAID: "success",
 };
 
+type GradeInfo = { code: string; name: string; discountRate: number; minSpendAmount: number | null };
+
+// auth.api GET /api/auth/me/grade (gateway#81). confirmedAmount·amountToNextGrade 는 주문 집계를
+// 못 불러오면 null 이다 — 0 으로 바꿔 표시하지 말 것(틀린 안내가 된다).
+type MyGrade = {
+  grade: GradeInfo;
+  windowMonths: number;
+  confirmedAmount: number | null;
+  nextGrade: GradeInfo | null;
+  amountToNextGrade: number | null;
+};
+
 type WishlistItem = { id: number; productId: number; productName: string };
 
 export default function MyPage() {
   const [me, setMe] = useState<Me | null>(null);
   const [error, setError] = useState("");
   const [orders, setOrders] = useState<OrderSummary[]>([]);
+  const [myGrade, setMyGrade] = useState<MyGrade | null>(null);
   const [wishlists, setWishlists] = useState<WishlistItem[]>([]);
   const [wishlistPage, setWishlistPage] = useState(0);
   const [hasMoreWishlists, setHasMoreWishlists] = useState(false);
@@ -61,6 +74,12 @@ export default function MyPage() {
       .then((res) => (res.ok ? res.json() : []))
       .then(setOrders)
       .catch(() => setOrders([]));
+
+    // 등급 카드는 부가 정보라 실패해도 화면을 막지 않는다 — 못 불러오면 카드를 숨긴다.
+    fetch("/api/auth/me/grade", { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then(setMyGrade)
+      .catch(() => setMyGrade(null));
 
     fetchWishlists(0);
   }, []);
@@ -132,6 +151,37 @@ export default function MyPage() {
               </button>
             </div>
           </div>
+
+          {myGrade && (
+            <div className="card blueprint elev-sm" style={{ marginBottom: 24 }}>
+              <BlueprintCorners />
+              <p style={{ margin: 0 }}>
+                회원 등급: <strong>{myGrade.grade.name}</strong>
+              </p>
+              <p style={{ margin: 0 }}>
+                {myGrade.grade.discountRate > 0
+                  ? `주문 금액의 ${myGrade.grade.discountRate}%를 할인받습니다.`
+                  : "등급 할인이 없는 등급입니다."}
+              </p>
+              {myGrade.confirmedAmount !== null && (
+                <p className="text-muted" style={{ margin: 0 }}>
+                  최근 {myGrade.windowMonths}개월 구매확정 금액: {myGrade.confirmedAmount.toLocaleString()}원
+                </p>
+              )}
+              {myGrade.nextGrade && myGrade.amountToNextGrade !== null && (
+                <p className="text-muted" style={{ margin: 0 }}>
+                  {myGrade.amountToNextGrade > 0
+                    ? `${myGrade.nextGrade.name} 등급(${myGrade.nextGrade.discountRate}% 할인)까지 ${myGrade.amountToNextGrade.toLocaleString()}원 남았습니다.`
+                    : `${myGrade.nextGrade.name} 등급 기준을 채웠습니다. 다음 달 1일 산정 때 반영됩니다.`}
+                </p>
+              )}
+              {!myGrade.nextGrade && (
+                <p className="text-muted" style={{ margin: 0 }}>
+                  가장 높은 등급입니다.
+                </p>
+              )}
+            </div>
+          )}
 
           <h3 style={{ marginTop: 32 }}>주문내역</h3>
           {orders.length === 0 ? (
