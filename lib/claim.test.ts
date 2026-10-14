@@ -51,4 +51,11 @@ describe("available / claimRequestBody", () => {
   it("아무것도 고르지 않으면 null", () => {
     expect(claimRequestBody("CANCEL", { 1: 0 }, null, "")).toBeNull();
   });
+
+  it("교환은 품목마다 교환 옵션을 싣고, 하나라도 비면 null", () => {
+    expect(claimRequestBody("EXCHANGE", { 1: 1 }, "DEFECTIVE", "", { 1: 202 })).toEqual({
+      type: "EXCHANGE", reasonType: "DEFECTIVE", reasonDetail: null, items: [{ orderItemId: 1, quantity: 1, exchangeVariantId: 202 }],
+    });
+    expect(claimRequestBody("EXCHANGE", { 1: 1 }, "DEFECTIVE", "", {})).toBeNull();
+  });
 });
