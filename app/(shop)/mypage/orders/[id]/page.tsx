@@ -6,6 +6,7 @@ import { BlueprintCorners, Tag } from "@posselect/ui";
 import {
   orderStatusLabel,
   orderStatusVariant,
+  serverTime,
   shipmentStatusLabel,
   trackingSearchUrl,
 } from "@/lib/order";
@@ -56,7 +57,7 @@ function addressText(order: OrderDetail): string {
   const zip = order.zipCode ? `(${order.zipCode}) ` : "";
   return [zip + order.address1, order.address2].filter(Boolean).join(" ");
 }
-const dateTime = (s: string | null) => (s ? new Date(s).toLocaleString() : "-");
+const dateTime = (s: string | null) => (s ? serverTime(s).toLocaleString() : "-");
 
 // 게이트웨이가 로그인한 고객의 신원을 실어 보내고, 남의 주문이면 order.api 가 404 를 준다.
 export default function OrderDetailPage() {

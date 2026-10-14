@@ -1,5 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { myOrdersUrl, periodRange, trackingSearchUrl } from "./order";
+import { myOrdersUrl, periodRange, serverTime, trackingSearchUrl } from "./order";
+
+describe("serverTime", () => {
+  it("오프셋 없는 order.api 시각은 UTC 로 읽는다 — UTC 15:00 은 한국 다음 날 0시", () => {
+    expect(serverTime("2026-10-04T15:00:00").toISOString()).toBe("2026-10-04T15:00:00.000Z");
+    expect(serverTime("2026-10-04T07:13:28.855985").getTime()).toBe(Date.UTC(2026, 9, 4, 7, 13, 28, 855));
+  });
+
+  it("오프셋이 있으면 그대로 쓴다", () => {
+    expect(serverTime("2026-10-04T16:13:28+09:00").toISOString()).toBe("2026-10-04T07:13:28.000Z");
+    expect(serverTime("2026-10-04T07:13:28Z").toISOString()).toBe("2026-10-04T07:13:28.000Z");
+  });
+});
 
 describe("periodRange", () => {
   it("전체 기간이면 날짜를 보내지 않는다", () => {

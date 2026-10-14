@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { BlueprintCorners, Tag } from "@posselect/ui";
 import { benefitText, nextGradeText, type MyGrade } from "@/lib/grade";
 import { replaceLocation } from "@/lib/navigation";
-import { myOrdersUrl, ORDER_PERIODS, orderStatusLabel, orderStatusVariant } from "@/lib/order";
+import { myOrdersUrl, ORDER_PERIODS, orderStatusLabel, orderStatusVariant, serverTime } from "@/lib/order";
 
 type Me = { email: string; role: string };
 
@@ -222,7 +222,7 @@ export default function MyPage() {
                   }}
                 >
                   <a href={`/mypage/orders/${order.id}`}>
-                    주문 #{order.id} · {new Date(order.createdAt).toLocaleDateString()} · 상품{" "}
+                    주문 #{order.id} · {serverTime(order.createdAt).toLocaleDateString()} · 상품{" "}
                     {order.itemCount}종
                   </a>
                   <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
