@@ -14,7 +14,7 @@ function mockApis(onboarding: () => Response) {
     vi.fn(async (url: string) => {
       if (url === "/api/auth/onboarding") return onboarding();
       if (url === "/api/auth/me") return json({ email: "social@example.com", role: "USER" });
-      if (url === "/api/orders/mine") return json([]);
+      if (url.startsWith("/api/orders/mine")) return json([]);
       if (url.startsWith("/api/wishlists")) return json({ content: [], last: true });
       return new Response(null, { status: 404 });
     }),

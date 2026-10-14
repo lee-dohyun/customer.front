@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { BlueprintCorners, Tag } from "@posselect/ui";
 import { benefitText, nextGradeText, type MyGrade } from "@/lib/grade";
 import { replaceLocation } from "@/lib/navigation";
+import { myOrdersUrl, ORDER_PERIODS, orderStatusLabel, orderStatusVariant } from "@/lib/order";
 
 type Me = { email: string; role: string };
 
@@ -15,15 +16,8 @@ type OrderSummary = {
   createdAt: string;
 };
 
-const orderStatusLabel: Record<string, string> = {
-  CREATED: "결제 대기",
-  PAID: "결제 완료",
-};
-
-const orderStatusVariant: Record<string, "warning" | "success" | "neutral"> = {
-  CREATED: "warning",
-  PAID: "success",
-};
+// 주문 목록은 10건씩 더 불러온다(gateway#321).
+const ORDER_PAGE_SIZE = 10;
 
 type WishlistItem = { id: number; productId: number; productName: string };
 
@@ -32,6 +26,23 @@ export default function MyPage() {
   const [error, setError] = useState("");
   const [grade, setGrade] = useState<MyGrade | null>(null);
   const [orders, setOrders] = useState<OrderSummary[]>([]);
+  const [orderMonths, setOrderMonths] = useState<number | null>(null);
+  const [orderPage, setOrderPage] = useState(0);
+  const [hasMoreOrders, setHasMoreOrders] = useState(false);
+
+  // 기간을 바꾸면 첫 페이지부터, 더보기는 다음 페이지를 이어 붙인다.
+  const loadOrders = (months: number | null, page: number) =>
+    fetch(myOrdersUrl(months, page, ORDER_PAGE_SIZE, new Date()), { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: OrderSummary[]) => {
+        setOrders((prev) => (page === 0 ? data : [...prev, ...data]));
+        setHasMoreOrders(data.length === ORDER_PAGE_SIZE);
+        setOrderPage(page);
+      })
+      .catch(() => {
+        if (page === 0) setOrders([]);
+        setHasMoreOrders(false);
+      });
   const [wishlists, setWishlists] = useState<WishlistItem[]>([]);
   const [wishlistPage, setWishlistPage] = useState(0);
   const [hasMoreWishlists, setHasMoreWishlists] = useState(false);
@@ -67,10 +78,7 @@ export default function MyPage() {
       .then(setGrade)
       .catch(() => setGrade(null));
 
-    const ordersLoaded = fetch("/api/orders/mine", { credentials: "include" })
-      .then((res) => (res.ok ? res.json() : []))
-      .then(setOrders)
-      .catch(() => setOrders([]));
+    const ordersLoaded = loadOrders(null, 0);
 
     const wishlistsLoaded = fetchWishlists(0);
 
@@ -183,6 +191,21 @@ export default function MyPage() {
           )}
 
           <h3 style={{ marginTop: 32 }}>주문내역</h3>
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 8 }}>
+            {ORDER_PERIODS.map((p) => (
+              <button
+                key={p.label}
+                onClick={() => {
+                  setOrderMonths(p.months);
+                  loadOrders(p.months, 0);
+                }}
+                className={p.months === orderMonths ? "btn btn-primary" : "btn btn-ghost"}
+                aria-pressed={p.months === orderMonths}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
           {orders.length === 0 ? (
             <p className="text-muted">주문 내역이 없습니다.</p>
           ) : (
@@ -198,10 +221,10 @@ export default function MyPage() {
                     borderBottom: "1px solid var(--color-divider)",
                   }}
                 >
-                  <span>
+                  <a href={`/mypage/orders/${order.id}`}>
                     주문 #{order.id} · {new Date(order.createdAt).toLocaleDateString()} · 상품{" "}
                     {order.itemCount}종
-                  </span>
+                  </a>
                   <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     {order.totalPrice.toLocaleString()}원
                     <Tag variant={orderStatusVariant[order.status] ?? "neutral"}>
@@ -211,6 +234,11 @@ export default function MyPage() {
                 </li>
               ))}
             </ul>
+          )}
+          {hasMoreOrders && (
+            <button onClick={() => loadOrders(orderMonths, orderPage + 1)} className="btn btn-ghost" style={{ marginTop: 8 }}>
+              주문 더보기
+            </button>
           )}
 
           <h3 id="wishlist" style={{ marginTop: 32 }}>내 찜 목록</h3>

@@ -17,7 +17,7 @@ function mockApisWithLateOrders() {
     vi.fn(async (url: string) => {
       if (url === "/api/auth/me") return json({ email: "user@example.com", role: "USER" });
       if (url === "/api/auth/onboarding") return json({ required: false });
-      if (url === "/api/orders/mine") {
+      if (url.startsWith("/api/orders/mine")) {
         await ordersGate;
         return json([{ id: 1, status: "PAID", totalPrice: 1000, itemCount: 1, createdAt: "2026-10-01T00:00:00Z" }]);
       }
