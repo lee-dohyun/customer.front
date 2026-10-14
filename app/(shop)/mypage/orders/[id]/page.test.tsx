@@ -21,7 +21,7 @@ const base = {
   shippingFee: 3000,
   totalPrice: 35536,
   gradeCode: "SILVER",
-  items: [{ productId: 9030, productName: "퓨어原 단백질 트리트먼트", price: 16600, quantity: 2, sellerName: "포스셀렉트" }],
+  items: [{ orderItemId: 7, claimedQuantity: 0, productId: 9030, productName: "퓨어原 단백질 트리트먼트", price: 16600, quantity: 2, sellerName: "포스셀렉트" }],
   createdAt: "2026-10-14T01:00:00",
   paidAt: "2026-10-14T01:01:00",
   shipment: {
@@ -31,6 +31,7 @@ const base = {
     shippedAt: "2026-10-15T01:00:00",
     deliveredAt: null,
   },
+  claims: [],
 };
 
 function mockOrder(response: Response) {
@@ -73,5 +74,59 @@ describe("주문 상세 (gateway#321)", () => {
     render(<OrderDetailPage />);
 
     expect(await screen.findByText("주문을 찾을 수 없습니다.")).toBeInTheDocument();
+  });
+
+  it("출고 전(결제 완료·운송장 없음)이면 상품을 골라 취소하고, 같은 폼의 재시도는 같은 멱등 키로 보낸다 (gateway#320)", async () => {
+    const calls: { url: string; init?: RequestInit }[] = [];
+    let created = false;
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+      calls.push({ url, init });
+      if (init?.method === "POST") {
+        created = true;
+        return json({ id: 1 }, 201);
+      }
+      return json({
+        ...base, status: "PAID", shipment: null,
+        items: [{ ...base.items[0], claimedQuantity: created ? 1 : 0 }],
+        claims: created ? [{ id: 1, type: "CANCEL", status: "COMPLETED", reasonType: "CHANGE_OF_MIND", reasonDetail: null,
+          items: [{ orderItemId: 7, productName: "퓨어原 단백질 트리트먼트", quantity: 1 }], refundAmount: 16268,
+          returnShippingFee: 0, rejectReason: null, createdAt: "2026-10-14T01:00:00" }] : [],
+      });
+    }));
+    vi.stubGlobal("confirm", () => true);
+    render(<OrderDetailPage />);
+
+    (await screen.findByRole("button", { name: "주문 취소" })).click();
+    const select = await screen.findByLabelText("퓨어原 단백질 트리트먼트");
+    const { fireEvent } = await import("@testing-library/react");
+    fireEvent.change(select, { target: { value: "1" } });
+    screen.getByRole("button", { name: "취소하기" }).click();
+
+    expect(await screen.findByText("환불 16,268원")).toBeInTheDocument();
+    const post = calls.find((c) => c.init?.method === "POST");
+    expect(post?.url).toBe("/api/orders/42/claims");
+    expect(JSON.parse(String(post?.init?.body))).toEqual({
+      type: "CANCEL", reasonType: null, reasonDetail: null, items: [{ orderItemId: 7, quantity: 1 }],
+    });
+    expect((post?.init?.headers as Record<string, string>)["Idempotency-Key"]).toBeTruthy();
+  });
+
+  it("배송 중이면 신청 버튼 없이 안내만 보인다", async () => {
+    mockOrder(json(base));
+    render(<OrderDetailPage />);
+
+    expect(await screen.findByText(/출고 전에는 취소, 배송 완료 후 7일 안에는 반품/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "주문 취소" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "반품 신청" })).not.toBeInTheDocument();
+  });
+
+  it("반려된 신청은 사유를 보여 준다", async () => {
+    mockOrder(json({ ...base, status: "DELIVERED", shipment: { ...base.shipment, status: "DELIVERED", deliveredAt: "2020-01-01T00:00:00" },
+      claims: [{ id: 3, type: "RETURN", status: "REJECTED", reasonType: "CHANGE_OF_MIND", reasonDetail: null,
+        items: [{ orderItemId: 7, productName: "퓨어原 단백질 트리트먼트", quantity: 1 }], refundAmount: null,
+        returnShippingFee: null, rejectReason: "사용 흔적이 있습니다", createdAt: "2026-10-14T01:00:00" }] }));
+    render(<OrderDetailPage />);
+
+    expect(await screen.findByText("반려 사유: 사용 흔적이 있습니다")).toBeInTheDocument();
   });
 });
