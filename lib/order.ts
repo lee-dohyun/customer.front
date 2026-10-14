@@ -29,6 +29,15 @@ export const shipmentStatusLabel: Record<string, string> = {
   DELIVERED: "배송 완료",
 };
 
+/**
+ * order.api 의 시각 문자열을 Date 로. order.api 는 파드 시간대(UTC)의 LocalDateTime 을 오프셋 없이
+ * 내려 준다("2026-10-04T07:13:28.85"). 그대로 new Date() 에 넣으면 브라우저가 한국 시각으로 읽어
+ * 9시간 이르게 보인다 — 오프셋이 없으면 UTC 로 해석한다.
+ */
+export function serverTime(s: string): Date {
+  return new Date(/[zZ]|[+-]\d{2}:?\d{2}$/.test(s) ? s : `${s}Z`);
+}
+
 /** 목록의 기간 선택지. months 가 null 이면 전체 기간. */
 export const ORDER_PERIODS: { label: string; months: number | null }[] = [
   { label: "전체", months: null },
