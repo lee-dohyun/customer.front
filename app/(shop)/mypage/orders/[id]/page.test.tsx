@@ -115,7 +115,7 @@ describe("주문 상세 (gateway#321)", () => {
     mockOrder(json(base));
     render(<OrderDetailPage />);
 
-    expect(await screen.findByText(/출고 전에는 취소, 배송 완료 후 7일 안에는 반품/)).toBeInTheDocument();
+    expect(await screen.findByText(/출고 전에는 취소, 배송 완료 후 7일 안에는 반품·교환/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "주문 취소" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "반품 신청" })).not.toBeInTheDocument();
   });
@@ -128,5 +128,35 @@ describe("주문 상세 (gateway#321)", () => {
     render(<OrderDetailPage />);
 
     expect(await screen.findByText("반려 사유: 사용 흔적이 있습니다")).toBeInTheDocument();
+  });
+
+  it("배송 완료 7일 안이면 교환 옵션을 골라 교환을 신청한다 (gateway#320)", async () => {
+    const posts: unknown[] = [];
+    const delivered = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().replace("Z", "");
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.endsWith("/exchange-options")) {
+        return json([{ orderItemId: 7, productName: "퓨어原 단백질 트리트먼트", options: [{ variantId: 202, label: "블랙 / L", stockQuantity: 3 }] }]);
+      }
+      if (init?.method === "POST") {
+        posts.push(JSON.parse(String(init.body)));
+        return json({ id: 9 }, 201);
+      }
+      return json({ ...base, status: "DELIVERED", shipment: { ...base.shipment, status: "DELIVERED", deliveredAt: delivered } });
+    }));
+    render(<OrderDetailPage />);
+
+    (await screen.findByRole("button", { name: "교환 신청" })).click();
+    const { fireEvent } = await import("@testing-library/react");
+    fireEvent.change(await screen.findByLabelText("퓨어原 단백질 트리트먼트"), { target: { value: "1" } });
+    await screen.findByRole("option", { name: "블랙 / L" });
+    fireEvent.change(screen.getByLabelText("퓨어原 단백질 트리트먼트 교환 옵션"), { target: { value: "202" } });
+    expect(screen.queryByRole("option", { name: "단순 변심" })).not.toBeInTheDocument();
+    screen.getByRole("button", { name: "교환 신청하기" }).click();
+
+    await vi.waitFor(() => expect(posts).toHaveLength(1));
+    expect(posts[0]).toEqual({
+      type: "EXCHANGE", reasonType: "DEFECTIVE", reasonDetail: null,
+      items: [{ orderItemId: 7, quantity: 1, exchangeVariantId: 202 }],
+    });
   });
 });

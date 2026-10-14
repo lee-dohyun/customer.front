@@ -16,10 +16,14 @@ export const claimReasonLabel: Record<string, string> = {
   WRONG_ITEM: "다른 상품이 왔어요",
 };
 
-export const claimTypeLabel: Record<string, string> = { CANCEL: "취소", RETURN: "반품" };
+export const claimTypeLabel: Record<string, string> = { CANCEL: "취소", RETURN: "반품", EXCHANGE: "교환" };
+
+/** 교환은 판매자 사유만(gateway#320 결정 — 단순 변심 교환은 실결제 전까지 받지 않는다). */
+export const exchangeReasons = ["DEFECTIVE", "WRONG_ITEM"] as const;
 
 export const claimStatusLabel: Record<string, string> = {
   REQUESTED: "접수됨(검토 중)",
+  APPROVED: "승인됨(교환 상품 발송 준비 중)",
   COMPLETED: "완료",
   REJECTED: "반려",
 };
@@ -44,21 +48,38 @@ export function claimMode(
   return null;
 }
 
-/** 고른 수량으로 요청 본문을 만든다. 0개 품목은 빼고, 아무것도 없으면 null. */
+type ClaimLine = { orderItemId: number; quantity: number; exchangeVariantId?: number };
+
+/**
+ * 고른 수량으로 요청 본문을 만든다. 0개 품목은 빼고, 아무것도 없으면 null. 교환은 품목마다 교환 옵션이 있어야 하고
+ * 하나라도 비면 null 이다({@code exchangePick} 은 orderItemId → variantId).
+ */
 export function claimRequestBody(
-  mode: Exclude<ClaimMode, null>,
+  mode: Exclude<ClaimMode, null> | "EXCHANGE",
   picked: Record<number, number>,
   reasonType: string | null,
   reasonDetail: string,
-): { type: "CANCEL" | "RETURN"; reasonType: string | null; reasonDetail: string | null; items: { orderItemId: number; quantity: number }[] } | null {
-  const items = Object.entries(picked)
-    .filter(([, q]) => q > 0)
-    .map(([id, q]) => ({ orderItemId: Number(id), quantity: q }));
+  exchangePick: Record<number, number> = {},
+): { type: "CANCEL" | "RETURN" | "EXCHANGE"; reasonType: string | null; reasonDetail: string | null; items: ClaimLine[] } | null {
+  const isExchange = mode === "EXCHANGE";
+  const items: ClaimLine[] = [];
+  for (const [id, q] of Object.entries(picked)) {
+    if (q <= 0) continue;
+    const line: ClaimLine = { orderItemId: Number(id), quantity: q };
+    if (isExchange) {
+      const variantId = exchangePick[Number(id)];
+      if (!variantId) return null;
+      line.exchangeVariantId = variantId;
+    }
+    items.push(line);
+  }
   if (items.length === 0) return null;
-  const isReturn = mode === "RETURN";
+  let type: "CANCEL" | "RETURN" | "EXCHANGE" = "CANCEL";
+  if (mode === "RETURN") type = "RETURN";
+  if (isExchange) type = "EXCHANGE";
   return {
-    type: isReturn ? "RETURN" : "CANCEL",
-    reasonType: isReturn ? reasonType : null,
+    type,
+    reasonType: type === "CANCEL" ? null : reasonType,
     reasonDetail: reasonDetail.trim() || null,
     items,
   };
