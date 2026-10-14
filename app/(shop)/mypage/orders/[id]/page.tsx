@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { BlueprintCorners, Tag } from "@posselect/ui";
+import { ClaimSection, type Claim } from "./ClaimSection";
 import {
   orderStatusLabel,
   orderStatusVariant,
@@ -12,6 +13,8 @@ import {
 } from "@/lib/order";
 
 type OrderItem = {
+  orderItemId: number;
+  claimedQuantity: number;
   productId: number;
   productName: string;
   price: number;
@@ -47,6 +50,7 @@ type OrderDetail = {
   createdAt: string;
   paidAt: string | null;
   shipment: Shipment | null;
+  claims: Claim[];
 };
 
 const won = (n: number) => `${n.toLocaleString()}원`;
@@ -65,7 +69,7 @@ export default function OrderDetailPage() {
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [error, setError] = useState("");
 
-  useEffect(() => {
+  const load = () =>
     fetch(`/api/orders/${encodeURIComponent(id)}`, { credentials: "include" })
       .then((res) => {
         if (res.status === 404) throw new Error("주문을 찾을 수 없습니다.");
@@ -74,6 +78,10 @@ export default function OrderDetailPage() {
       })
       .then(setOrder)
       .catch((e: Error) => setError(e.message));
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 주문 번호가 바뀔 때만 다시 부른다
   }, [id]);
 
   return (
@@ -166,6 +174,15 @@ export default function OrderDetailPage() {
               </p>
             )}
           </section>
+
+          <ClaimSection
+            orderId={order.id}
+            status={order.status}
+            shipment={order.shipment}
+            items={order.items}
+            claims={order.claims ?? []}
+            onChanged={load}
+          />
         </>
       )}
     </div>
